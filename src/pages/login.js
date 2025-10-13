@@ -14,7 +14,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('${process.env.REACT_APP_API_URL}/api/login', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/login`, {  // ← BACKTICKS!
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -25,19 +25,17 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // ✅ Save token AND userId to localStorage
         localStorage.setItem('token', data.token);
-        localStorage.setItem('userId', data.userId); // ← CRITICAL: Save userId
+        localStorage.setItem('userId', data.user.id); // ← Also fix this
         
         console.log('✅ Login successful!');
         console.log('Token saved:', data.token);
-        console.log('UserId saved:', data.userId);
+        console.log('UserId saved:', data.user.id);
         
-        // ✅ Redirect to HOMEPAGE (not CarMod)
         navigate('/');
         
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -190,7 +188,6 @@ function Login() {
           </button>
         </div>
 
-        {/* Back to Home Button */}
         <div style={{
           textAlign: 'center',
           marginTop: '15px',
