@@ -6,6 +6,7 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -14,7 +15,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/login`, {  // ← BACKTICKS!
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -25,15 +26,20 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ Fixed userId key according to backend response
         localStorage.setItem('token', data.token);
-        localStorage.setItem('userId', data.user.id); // ← Also fix this
-        
+        localStorage.setItem('userId', data.userId);
+
         console.log('✅ Login successful!');
         console.log('Token saved:', data.token);
-        console.log('UserId saved:', data.user.id);
-        
-        navigate('/');
-        
+        console.log('UserId saved:', data.userId);
+
+        // ✅ Show welcome toast
+        setShowToast(true);
+        setTimeout(() => {
+          setShowToast(false);
+          navigate('/');
+        }, 1500);
       } else {
         setError(data.message || 'Login failed');
       }
@@ -46,60 +52,93 @@ function Login() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '40px',
-        borderRadius: '16px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-        width: '100%',
-        maxWidth: '400px',
-      }}>
-        <h2 style={{
-          textAlign: 'center',
-          marginBottom: '30px',
-          color: '#333',
-        }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: 'relative',
+      }}
+    >
+      {/* ✅ Toast Notification */}
+      {showToast && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '40px',
+            background: 'linear-gradient(135deg, #4caf50, #2e7d32)',
+            color: 'white',
+            padding: '16px 28px',
+            borderRadius: '10px',
+            fontSize: '18px',
+            fontWeight: '700',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            animation: 'fadeInOut 1.5s ease forwards',
+          }}
+        >
+          ✅ Welcome Back!
+        </div>
+      )}
+
+      <div
+        style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          width: '100%',
+          maxWidth: '400px',
+        }}
+      >
+        <h2
+          style={{
+            textAlign: 'center',
+            marginBottom: '30px',
+            color: '#333',
+          }}
+        >
           🚗 CarMod Showdown
         </h2>
-        
-        <h3 style={{
-          textAlign: 'center',
-          marginBottom: '20px',
-          color: '#667eea',
-          fontSize: '20px',
-        }}>
+
+        <h3
+          style={{
+            textAlign: 'center',
+            marginBottom: '20px',
+            color: '#667eea',
+            fontSize: '20px',
+          }}
+        >
           Login
         </h3>
 
         {error && (
-          <div style={{
-            background: '#fee',
-            color: '#c33',
-            padding: '12px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            fontSize: '14px',
-          }}>
+          <div
+            style={{
+              background: '#fee',
+              color: '#c33',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '14px',
+            }}
+          >
             ❌ {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              color: '#555',
-              fontSize: '14px',
-              fontWeight: '500',
-            }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '8px',
+                color: '#555',
+                fontSize: '14px',
+                fontWeight: '500',
+              }}
+            >
               Email
             </label>
             <input
@@ -120,13 +159,15 @@ function Login() {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              color: '#555',
-              fontSize: '14px',
-              fontWeight: '500',
-            }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '8px',
+                color: '#555',
+                fontSize: '14px',
+                fontWeight: '500',
+              }}
+            >
               Password
             </label>
             <input
@@ -152,7 +193,9 @@ function Login() {
             style={{
               width: '100%',
               padding: '14px',
-              background: isLoading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: isLoading
+                ? '#ccc'
+                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -166,12 +209,14 @@ function Login() {
           </button>
         </form>
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: '20px',
-          fontSize: '14px',
-          color: '#666',
-        }}>
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: '20px',
+            fontSize: '14px',
+            color: '#666',
+          }}
+        >
           Don't have an account?{' '}
           <button
             onClick={() => navigate('/register')}
@@ -188,10 +233,12 @@ function Login() {
           </button>
         </div>
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: '15px',
-        }}>
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: '15px',
+          }}
+        >
           <button
             onClick={() => navigate('/')}
             style={{
@@ -206,6 +253,18 @@ function Login() {
           </button>
         </div>
       </div>
+
+      {/* Inline keyframes for the toast */}
+      <style>
+        {`
+          @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+          }
+        `}
+      </style>
     </div>
   );
 }
