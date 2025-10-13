@@ -283,18 +283,24 @@ const StatCard = ({ count, label, color, emoji }) => (
 
 const SubmissionCard = ({ sub }) => (
   <div
-    style={{
-      background: sub.is_winner
-        ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,140,0,0.15))"
-        : "rgba(255,255,255,0.05)",
-      padding: "30px",
-      borderRadius: "20px",
-      border: sub.is_winner
-        ? "3px solid #FFD700"
-        : "2px solid rgba(255,255,255,0.1)",
-      transition: "all 0.3s ease",
-    }}
-  >
+  style={{
+    background: sub.is_winner
+      ? 'rgba(255, 215, 0, 0.1)'
+      : 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    borderRadius: '20px',
+    border: sub.is_winner
+      ? '1px solid rgba(255, 215, 0, 0.4)'
+      : '1px solid rgba(255,255,255,0.2)',
+    boxShadow: sub.is_winner
+      ? '0 8px 32px rgba(255, 215, 0, 0.25)'
+      : '0 8px 32px rgba(31, 38, 135, 0.37)',
+    padding: '30px',
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  }}
+>
+
     {sub.is_winner && (
       <div
         style={{
