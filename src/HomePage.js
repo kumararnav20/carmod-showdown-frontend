@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import VotingPanel from "./VotingPanel";
 import StatusPanel from "./StatusPanel";
+import LeaderboardSection from "../components/LeaderboardSection"; // 🏆 Leaderboard import
 
 function HomePage() {
   const navigate = useNavigate();
@@ -130,7 +131,8 @@ function HomePage() {
           Customize Cars. Compete. Win. 🏆
         </h1>
         <p style={{ fontSize: "26px", color: "#ccc", marginBottom: "40px" }}>
-          Create custom 3D parts in Blender, submit weekly, and win <strong style={{ color: "#FFD700" }}>Premium Access</strong> +{" "}
+          Create custom 3D parts in Blender, submit weekly, and win{" "}
+          <strong style={{ color: "#FFD700" }}>Premium Access</strong> +{" "}
           <strong style={{ color: "#4CAF50" }}>£50 Cash Prize!</strong>
         </p>
 
@@ -183,7 +185,14 @@ function HomePage() {
           How It Works
         </h2>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: "40px", textAlign: "center" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))",
+            gap: "40px",
+            textAlign: "center",
+          }}
+        >
           <Step num="1" color="#667eea" title="View 3D Cars" desc="Explore car models & download reference parts." />
           <Step num="2" color="#f5576c" title="Create in Blender" desc="Design custom parts and export as .glb files." />
           <Step num="3" color="#00f2fe" title="Submit & Vote" desc="Upload, vote on 25 others, and win prizes!" />
@@ -223,6 +232,10 @@ function HomePage() {
         </div>
       </section>
 
+      {/* 🏆 NEW WEEKLY LEADERBOARD */}
+      <LeaderboardSection />
+
+      {/* FOOTER */}
       <footer style={{ background: "rgba(0,0,0,0.6)", padding: "40px", textAlign: "center", color: "#777" }}>
         <p>© 2025 CarMod Showdown · All rights reserved.</p>
         <p style={{ color: "#555" }}>Built with ❤️ by Vyobha Studios</p>
@@ -231,7 +244,7 @@ function HomePage() {
   );
 }
 
-/* Reusable small components */
+/* 🔹 Reusable Small Components */
 const NavBtn = ({ label, color, onClick, emoji, gradient }) => (
   <button
     onClick={onClick}
