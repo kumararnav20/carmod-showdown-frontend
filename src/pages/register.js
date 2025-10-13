@@ -32,6 +32,8 @@ function Register() {
 
   return (
     <div style={styles.page}>
+      <div style={styles.bgOverlay}></div>
+
       <div style={styles.card}>
         <h1 style={styles.logo}>🏎️ CarMod Showdown</h1>
         <h2 style={styles.heading}>Register</h2>
@@ -40,7 +42,7 @@ function Register() {
           <div
             style={{
               ...styles.message,
-              color: message.includes("success") ? "#00e676" : "#ff1744",
+              color: message.includes("success") ? "#00e676" : "#ff5c5c",
             }}
           >
             {message}
@@ -65,7 +67,7 @@ function Register() {
             onChange={(e) => setUsername(e.target.value)}
             required
             style={styles.input}
-            placeholder="Choose a username"
+            placeholder="Choose your racer tag"
           />
 
           <label style={styles.label}>Password</label>
@@ -94,41 +96,40 @@ function Register() {
           ← Back to Home
         </button>
       </div>
-
-      <style>
-        {`
-          @keyframes bgMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}
-      </style>
     </div>
   );
 }
 
 const styles = {
   page: {
+    position: "relative",
     minHeight: "100vh",
-    background:
-      "linear-gradient(-45deg, #000000, #0a0f24, #111d2b, #1a0033)",
-    backgroundSize: "400% 400%",
-    animation: "bgMove 10s ease infinite",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    color: "#fff",
+    overflow: "hidden",
+    fontFamily: "'Orbitron', sans-serif",
+  },
+  bgOverlay: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(-45deg, #000000, #1a0033, #440066, #660033)",
+    backgroundSize: "400% 400%",
+    animation: "bgMove 12s ease infinite",
+    zIndex: -2,
   },
   card: {
-    background: "rgba(255,255,255,0.05)",
+    background: "rgba(0,0,0,0.6)",
+    border: "1px solid rgba(255,0,255,0.3)",
     borderRadius: "16px",
+    backdropFilter: "blur(15px)",
+    boxShadow: "0 0 40px rgba(255,0,255,0.15)",
     padding: "50px 40px",
     width: "90%",
     maxWidth: "400px",
-    boxShadow: "0 0 40px rgba(255,0,255,0.15)",
-    backdropFilter: "blur(15px)",
-    border: "1px solid rgba(255,255,255,0.2)",
+    zIndex: 2,
+    color: "#fff",
   },
   logo: {
     textAlign: "center",
@@ -139,29 +140,17 @@ const styles = {
     WebkitTextFillColor: "transparent",
     marginBottom: "10px",
   },
-  heading: {
-    textAlign: "center",
-    color: "#fff",
-    fontSize: "22px",
-    marginBottom: "25px",
-  },
-  label: {
-    display: "block",
-    fontSize: "14px",
-    marginBottom: "6px",
-    color: "#aaa",
-    fontWeight: "600",
-  },
+  heading: { textAlign: "center", color: "#fff", fontSize: "22px", marginBottom: "25px" },
+  label: { display: "block", fontSize: "14px", color: "#ccc", marginBottom: "6px" },
   input: {
     width: "100%",
     padding: "12px",
     borderRadius: "8px",
     border: "1px solid rgba(255,255,255,0.2)",
-    background: "rgba(0,0,0,0.4)",
+    background: "rgba(20,20,20,0.8)",
     color: "#fff",
     marginBottom: "20px",
     fontSize: "14px",
-    outline: "none",
   },
   button: {
     width: "100%",
@@ -173,30 +162,12 @@ const styles = {
     borderRadius: "10px",
     fontSize: "16px",
     cursor: "pointer",
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    boxShadow: "0 0 25px rgba(255,0,255,0.3)",
   },
-  text: { textAlign: "center", marginTop: "20px", color: "#aaa" },
-  link: {
-    color: "#f5576c",
-    cursor: "pointer",
-    fontWeight: "700",
-    textShadow: "0 0 8px #f5576c",
-  },
-  back: {
-    display: "block",
-    margin: "20px auto 0",
-    background: "none",
-    border: "none",
-    color: "#666",
-    cursor: "pointer",
-  },
-  message: {
-    padding: "10px",
-    borderRadius: "8px",
-    marginBottom: "20px",
-    fontWeight: "700",
-    textAlign: "center",
-  },
+  text: { textAlign: "center", marginTop: "20px", color: "#bbb" },
+  link: { color: "#f5576c", cursor: "pointer", fontWeight: "700", textShadow: "0 0 8px #f5576c" },
+  back: { display: "block", margin: "20px auto 0", background: "none", border: "none", color: "#777", cursor: "pointer" },
+  message: { textAlign: "center", fontWeight: "700", marginBottom: "15px" },
 };
 
 export default Register;
