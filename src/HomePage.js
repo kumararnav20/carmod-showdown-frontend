@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import VotingPanel from "./VotingPanel";
 import StatusPanel from "./StatusPanel";
-import LeaderboardSection from "../components/LeaderboardSection"; // 🏆 Leaderboard import
+import LeaderboardSection from "./LeaderBoardSection";
 
 function HomePage() {
   const navigate = useNavigate();
