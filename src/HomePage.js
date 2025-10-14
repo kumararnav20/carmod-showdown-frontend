@@ -185,7 +185,7 @@ const styles = {
     left: 0,
     width: "100%",
     height: "120%",
-    backgroundImage: "url('/nfs_bg.jpg')", // ⚡ Change your image name here
+    backgroundImage: "url('/nfs_bg.png')", // ⚡ Change your image name here
     backgroundSize: "cover",
     backgroundPosition: "center",
     zIndex: -2,
