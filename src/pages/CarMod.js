@@ -1,533 +1,570 @@
-import React, { useRef, useEffect, useState } from 'react';
-import * as THREE from 'three';
+// src/pages/CarMod.jsx
+import React, { useRef, useEffect, useState } from "react";
+import * as THREE from "three";
+
+// 🔌 UI / Theme
 import futuristicTheme from "../styles/futuristicTheme";
 
+// 🔗 Panels (adjust paths only if your files live elsewhere)
+import VotingPanel from "../VotingPanel";
+import StatusPanel from "../StatusPanel";
+
+/**
+ * CarMod — "Cyber Garage" Edition
+ * - Keeps your original logic for scene, loading, parts, upload, admin, gallery
+ * - Fixes template-literal bug for API URL in upload request
+ * - Adds premium neon/glass styling via a theme (no libraries required)
+ * - Non-destructive: no logic removed, only visual + minor quality updates
+ */
 
 function CarMod() {
   const mountRef = useRef(null);
-  const [selectedCar, setSelectedCar] = useState('bmw_e38_cyberbody.glb');
+
+  // ----------------- core state -----------------
+  const [selectedCar, setSelectedCar] = useState("bmw_e38_cyberbody.glb");
   const [isLoading, setIsLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState('Initializing...');
+  const [debugInfo, setDebugInfo] = useState("Initializing...");
+
   const [carParts, setCarParts] = useState([]);
+  const [selectedParts, setSelectedParts] = useState([]);
+  const [filterText, setFilterText] = useState("");
+
+  // ----------------- ui panels -----------------
   const [showModPanel, setShowModPanel] = useState(false);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showGalleryPanel, setShowGalleryPanel] = useState(false);
   const [showVotingPanel, setShowVotingPanel] = useState(false);
   const [showStatusPanel, setShowStatusPanel] = useState(false);
-  const [filterText, setFilterText] = useState('');
-  const [selectedParts, setSelectedParts] = useState([]);
-  const [panelWidth, setPanelWidth] = useState(550);
+
+  // ----------------- layout / resize -----------------
+  const [panelWidth, setPanelWidth] = useState(560);
   const [isDraggingResize, setIsDraggingResize] = useState(false);
+
+  // ----------------- auth / flags -----------------
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  // ----------------- upload form -----------------
   const [uploadData, setUploadData] = useState({
-    userName: '',
-    email: '',
-    partName: '',
-    partType: '',
-    carModel: '',
-    description: '',
+    userName: "",
+    email: "",
+    partName: "",
+    partType: "",
+    carModel: "",
+    description: "",
     file: null,
-    agreedToTerms: false
+    agreedToTerms: false,
   });
+
   const modelRef = useRef(null);
 
+  // ----------------- data: cars & part types -----------------
   const cars = [
-    { name: 'Aston Martin Valkyrie', file: 'aston_martin_valkyrie.glb' },
-    { name: 'BMW', file: 'bmw.glb' },
-    { name: 'BMW 507', file: 'bmw_507.glb' },
-    { name: 'BMW E38 Cyberbody', file: 'bmw_e38_cyberbody.glb' },
-    { name: 'BMW F22 Eurofighter', file: 'bmw_f22_eurofighter_free.glb', offset: { y: 0.4 } },
-    { name: 'BMW M4 Competition', file: 'bmw_m4_competition.glb' },
-    { name: 'BMW M5 F90', file: 'bmw_m5_f90.glb' },
-    { name: 'Ferrari SF90', file: 'ferrari_sf90.glb' },
-    { name: 'BMW M3 E30', file: 'free_bmw_m3_e30.glb' },
-    { name: 'Mercedes 190E Evo 1982', file: 'mercedes_190e_evo_1982_3d_model_free.glb' },
-    { name: 'Mercedes R-Class', file: 'mercedes_r-class.glb' },
-    { name: 'Porsche 911 GT3 RS', file: 'porsche_911_gt3_rs.glb' },
-    { name: 'Rolls Royce Boattail', file: 'rolls_royce_boattail.glb' },
-    { name: 'Rolls Royce Cullinan', file: 'rolls_royce_cullinan.glb', offset: { z: -7.0 } },
-    { name: 'Rolls Royce Ghost', file: 'rolls_royce_ghost.glb' },
-    { name: 'Rolls Royce Ghost Alt', file: 'rolls-royce_ghost.glb' },
+    { name: "Aston Martin Valkyrie", file: "aston_martin_valkyrie.glb" },
+    { name: "BMW", file: "bmw.glb" },
+    { name: "BMW 507", file: "bmw_507.glb" },
+    { name: "BMW E38 Cyberbody", file: "bmw_e38_cyberbody.glb" },
+    { name: "BMW F22 Eurofighter", file: "bmw_f22_eurofighter_free.glb", offset: { y: 0.4 } },
+    { name: "BMW M4 Competition", file: "bmw_m4_competition.glb" },
+    { name: "BMW M5 F90", file: "bmw_m5_f90.glb" },
+    { name: "Ferrari SF90", file: "ferrari_sf90.glb" },
+    { name: "BMW M3 E30", file: "free_bmw_m3_e30.glb" },
+    { name: "Mercedes 190E Evo 1982", file: "mercedes_190e_evo_1982_3d_model_free.glb" },
+    { name: "Mercedes R-Class", file: "mercedes_r-class.glb" },
+    { name: "Porsche 911 GT3 RS", file: "porsche_911_gt3_rs.glb" },
+    { name: "Rolls Royce Boattail", file: "rolls_royce_boattail.glb" },
+    { name: "Rolls Royce Cullinan", file: "rolls_royce_cullinan.glb", offset: { z: -7.0 } },
+    { name: "Rolls Royce Ghost", file: "rolls_royce_ghost.glb" },
+    { name: "Rolls Royce Ghost Alt", file: "rolls-royce_ghost.glb" },
   ];
 
   const partTypes = [
-    'Front Bumper', 'Rear Bumper', 'Side Skirt', 'Wheel/Rim', 'Hood', 'Trunk/Boot',
-    'Spoiler/Wing', 'Diffuser', 'Grille', 'Mirror', 'Door', 'Fender', 'Exhaust',
-    'Headlight', 'Taillight', 'Roof', 'Other'
+    "Front Bumper",
+    "Rear Bumper",
+    "Side Skirt",
+    "Wheel/Rim",
+    "Hood",
+    "Trunk/Boot",
+    "Spoiler/Wing",
+    "Diffuser",
+    "Grille",
+    "Mirror",
+    "Door",
+    "Fender",
+    "Exhaust",
+    "Headlight",
+    "Taillight",
+    "Roof",
+    "Other",
   ];
 
+  // ----------------- auth bootstrap -----------------
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const adminStatus = localStorage.getItem('isAdmin');
-    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem("token");
+    const adminStatus = localStorage.getItem("isAdmin");
+    const userId = localStorage.getItem("userId");
     setIsLoggedIn(!!token);
-    setIsAdmin(adminStatus === 'true');
+    setIsAdmin(adminStatus === "true");
     setCurrentUserId(userId ? parseInt(userId) : null);
   }, []);
 
+  // ----------------- resizable panel mouse handlers -----------------
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isDraggingResize) {
         const newWidth = window.innerWidth - e.clientX;
-        setPanelWidth(Math.max(400, Math.min(900, newWidth)));
+        setPanelWidth(Math.max(420, Math.min(940, newWidth)));
       }
     };
-
-    const handleMouseUp = () => {
-      setIsDraggingResize(false);
-    };
+    const handleMouseUp = () => setIsDraggingResize(false);
 
     if (isDraggingResize) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
     }
-
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDraggingResize]);
 
+  // ----------------- file upload handlers -----------------
   const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const validTypes = ['.glb', '.gltf'];
-      const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-      
-      if (!validTypes.includes(fileExtension)) {
-        alert('Please upload a .glb or .gltf file');
-        return;
-      }
-      
-      if (file.size > 50 * 1024 * 1024) {
-        alert('File size must be less than 50MB');
-        return;
-      }
-      
-      setUploadData(prev => ({ ...prev, file: file }));
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const valid = [".glb", ".gltf"];
+    const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+    if (!valid.includes(ext)) {
+      alert("Please upload a .glb or .gltf file");
+      return;
     }
+    if (file.size > 50 * 1024 * 1024) {
+      alert("File size must be less than 50MB");
+      return;
+    }
+    setUploadData((p) => ({ ...p, file }));
   };
 
   const handleSubmitUpload = async (e) => {
     e.preventDefault();
-    
-    if (!uploadData.userName || !uploadData.email || !uploadData.partName || 
-        !uploadData.partType || !uploadData.carModel || !uploadData.file || 
-        !uploadData.agreedToTerms) {
-      alert('❌ Please fill in all required fields and agree to the terms');
+
+    const required =
+      uploadData.userName &&
+      uploadData.email &&
+      uploadData.partName &&
+      uploadData.partType &&
+      uploadData.carModel &&
+      uploadData.file &&
+      uploadData.agreedToTerms;
+
+    if (!required) {
+      alert("❌ Please fill in all required fields and agree to the terms");
       return;
     }
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(uploadData.email)) {
-      alert('❌ Please enter a valid email address');
+      alert("❌ Please enter a valid email address");
       return;
     }
-    
+
     const formData = new FormData();
-    formData.append('userName', uploadData.userName);
-    formData.append('email', uploadData.email);
-    formData.append('partName', uploadData.partName);
-    formData.append('partType', uploadData.partType);
-    formData.append('carModel', uploadData.carModel);
-    formData.append('description', uploadData.description);
-    formData.append('file', uploadData.file);
-    
+    formData.append("userName", uploadData.userName);
+    formData.append("email", uploadData.email);
+    formData.append("partName", uploadData.partName);
+    formData.append("partType", uploadData.partType);
+    formData.append("carModel", uploadData.carModel);
+    formData.append("description", uploadData.description);
+    formData.append("file", uploadData.file);
+
     try {
-      const token = localStorage.getItem('token');
-      
+      const token = localStorage.getItem("token");
       if (!token) {
-        alert('❌ Please login first!');
+        alert("❌ Please login first!");
         return;
       }
-      
-      const response = await fetch('${process.env.REACT_APP_API_URL}/api/upload-part', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-      
+
+      // ✅ FIXED: use backticks, not quotes
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/upload-part`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
+
       const data = await response.json();
-      
       if (response.ok) {
-        alert('✅ ' + data.message);
-        
+        alert("✅ " + data.message);
         setUploadData({
-          userName: '',
-          email: '',
-          partName: '',
-          partType: '',
-          carModel: '',
-          description: '',
+          userName: "",
+          email: "",
+          partName: "",
+          partType: "",
+          carModel: "",
+          description: "",
           file: null,
-          agreedToTerms: false
+          agreedToTerms: false,
         });
-        
         setShowUploadPanel(false);
-        
-        // Show the status panel to remind them to vote
-        setTimeout(() => {
-          setShowStatusPanel(true);
-        }, 1000);
-        
+        setTimeout(() => setShowStatusPanel(true), 600);
       } else {
-        alert('❌ Upload failed: ' + (data.error || 'Please try again'));
+        alert("❌ Upload failed: " + (data.error || "Please try again"));
       }
-      
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('❌ Upload failed. Please check your connection and try again.');
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("❌ Upload failed. Please check your connection and try again.");
     }
   };
 
+  // ----------------- part toggles & edits -----------------
   const togglePartVisibility = (partName) => {
-    if (modelRef.current) {
-      modelRef.current.traverse((child) => {
-        if (child.isMesh && child.name === partName) {
-          child.visible = !child.visible;
-        }
-      });
-      
-      setCarParts(prev => 
-        prev.map(part => 
-          part.name === partName 
-            ? { ...part, visible: !part.visible }
-            : part
-        )
-      );
-    }
+    if (!modelRef.current) return;
+
+    modelRef.current.traverse((child) => {
+      if (child.isMesh && child.name === partName) {
+        child.visible = !child.visible;
+      }
+    });
+
+    setCarParts((prev) =>
+      prev.map((p) => (p.name === partName ? { ...p, visible: !p.visible } : p))
+    );
   };
 
   const changePartColor = (partName, color) => {
-    if (modelRef.current) {
-      modelRef.current.traverse((child) => {
-        if (child.isMesh && child.name === partName) {
-          if (child.material) {
-            child.material = child.material.clone();
-            child.material.color.set(color);
-          }
+    if (!modelRef.current) return;
+
+    modelRef.current.traverse((child) => {
+      if (child.isMesh && child.name === partName) {
+        if (child.material) {
+          child.material = child.material.clone();
+          child.material.color.set(color);
         }
-      });
-      
-      setCarParts(prev => 
-        prev.map(part => 
-          part.name === partName 
-            ? { ...part, color: color }
-            : part
-        )
-      );
-    }
+      }
+    });
+
+    setCarParts((prev) =>
+      prev.map((p) => (p.name === partName ? { ...p, color } : p))
+    );
   };
 
   const togglePartSelection = (partName) => {
-    setSelectedParts(prev => {
-      if (prev.includes(partName)) {
-        return prev.filter(p => p !== partName);
-      } else {
-        return [...prev, partName];
-      }
-    });
+    setSelectedParts((prev) =>
+      prev.includes(partName) ? prev.filter((n) => n !== partName) : [...prev, partName]
+    );
   };
 
   const hideAllExceptSelected = () => {
-    if (modelRef.current) {
-      modelRef.current.traverse((child) => {
-        if (child.isMesh) {
-          child.visible = selectedParts.includes(child.name);
-        }
-      });
-      
-      setCarParts(prev => 
-        prev.map(part => ({
-          ...part,
-          visible: selectedParts.includes(part.name)
-        }))
-      );
-    }
+    if (!modelRef.current) return;
+
+    modelRef.current.traverse((child) => {
+      if (child.isMesh) child.visible = selectedParts.includes(child.name);
+    });
+
+    setCarParts((prev) =>
+      prev.map((p) => ({ ...p, visible: selectedParts.includes(p.name) }))
+    );
   };
 
   const showAllParts = () => {
-    if (modelRef.current) {
-      modelRef.current.traverse((child) => {
-        if (child.isMesh) {
-          child.visible = true;
-        }
-      });
-      
-      setCarParts(prev => 
-        prev.map(part => ({
-          ...part,
-          visible: true
-        }))
-      );
-    }
+    if (!modelRef.current) return;
+
+    modelRef.current.traverse((child) => {
+      if (child.isMesh) child.visible = true;
+    });
+
+    setCarParts((prev) => prev.map((p) => ({ ...p, visible: true })));
   };
 
   const colorSelectedParts = (color) => {
-    selectedParts.forEach(partName => {
-      changePartColor(partName, color);
-    });
+    selectedParts.forEach((partName) => changePartColor(partName, color));
   };
 
   const exportPartAsGLB = async (partName) => {
     if (!modelRef.current) return;
 
     try {
-      let partToExport = null;
+      let target = null;
       modelRef.current.traverse((child) => {
-        if (child.isMesh && child.name === partName) {
-          partToExport = child;
-        }
+        if (child.isMesh && child.name === partName) target = child;
       });
 
-      if (!partToExport) {
-        alert('Part not found!');
+      if (!target) {
+        alert("Part not found!");
         return;
       }
 
-      const clonedPart = partToExport.clone();
+      const clone = target.clone();
       const tempScene = new THREE.Scene();
-      tempScene.add(clonedPart);
+      tempScene.add(clone);
 
-      const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+      const { GLTFExporter } = await import(
+        "three/examples/jsm/exporters/GLTFExporter.js"
+      );
       const exporter = new GLTFExporter();
 
       exporter.parse(
         tempScene,
         (result) => {
-          const blob = new Blob([result], { type: 'application/octet-stream' });
+          const blob = new Blob([result], { type: "application/octet-stream" });
           const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
+          const link = document.createElement("a");
           link.href = url;
           link.download = `${partName}_reference.glb`;
           link.click();
           URL.revokeObjectURL(url);
-          
           alert(`✅ Downloaded ${partName}!`);
         },
-        (error) => {
-          console.error('Export error:', error);
-          alert('Failed to export part. Please try again.');
+        (err) => {
+          console.error("Export error:", err);
+          alert("Failed to export part. Please try again.");
         },
         { binary: true }
       );
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export part.');
+    } catch (err) {
+      console.error("Export error:", err);
+      alert("Failed to export part.");
     }
   };
 
   const setPartLabel = (partName, label) => {
-    setCarParts(prev =>
-      prev.map(part =>
-        part.name === partName
-          ? { ...part, label: label }
-          : part
-      )
+    setCarParts((prev) =>
+      prev.map((p) => (p.name === partName ? { ...p, label } : p))
     );
   };
 
   const downloadBlenderGuide = () => {
-    const guide = `CAR PART CUSTOMIZATION GUIDE - Full instructions for creating custom car parts`;
-    const blob = new Blob([guide], { type: 'text/plain' });
+    const guide =
+      `CAR PART CUSTOMIZATION GUIDE\n\n` +
+      `• Export from Blender as .glb\n` +
+      `• Keep scale & origin sane\n` +
+      `• Name your meshes clearly (e.g. front_bumper_low)\n` +
+      `• Target < 50 MB\n` +
+      `• Submit .glb with details from the Upload panel\n`;
+    const blob = new Blob([guide], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'Car_Part_Guide.txt';
-    link.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Car_Part_Guide.txt";
+    a.click();
     URL.revokeObjectURL(url);
-    alert('📖 Guide downloaded!');
+    alert("📖 Guide downloaded!");
   };
 
+  // ----------------- three.js scene -----------------
   useEffect(() => {
-    const currentMount = mountRef.current;
-    if (!currentMount) return;
+    const mount = mountRef.current;
+    if (!mount) return;
 
-    setDebugInfo('Setting up scene...');
+    setDebugInfo("Setting up scene...");
 
     let scene, camera, renderer, currentModel;
     let isDragging = false;
     let isPanning = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let prevMouse = { x: 0, y: 0 };
     let cameraRadius = 8;
     let cameraTheta = 0;
     let cameraPhi = Math.PI / 4;
-    let cameraTarget = new THREE.Vector3(0, 1, 0);
-    let panOffset = new THREE.Vector3(0, 0, 0);
+    const cameraTarget = new THREE.Vector3(0, 1, 0);
+    const panOffset = new THREE.Vector3(0, 0, 0);
 
+    // Scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a);
+    scene.background = new THREE.Color(0x0b0b0f); // darker cyber bay
 
+    // Camera
     camera = new THREE.PerspectiveCamera(
       50,
-      currentMount.clientWidth / currentMount.clientHeight,
+      mount.clientWidth / mount.clientHeight,
       0.1,
       1000
     );
-    
-    const updateCameraPosition = () => {
-      camera.position.x = cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta) + panOffset.x;
-      camera.position.y = cameraRadius * Math.cos(cameraPhi) + panOffset.y;
-      camera.position.z = cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta) + panOffset.z;
-      camera.lookAt(cameraTarget.x + panOffset.x, cameraTarget.y + panOffset.y, cameraTarget.z + panOffset.z);
-    };
-    
-    updateCameraPosition();
 
+    const updateCameraPos = () => {
+      camera.position.x =
+        cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta) + panOffset.x;
+      camera.position.y = cameraRadius * Math.cos(cameraPhi) + panOffset.y;
+      camera.position.z =
+        cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta) + panOffset.z;
+      camera.lookAt(
+        cameraTarget.x + panOffset.x,
+        cameraTarget.y + panOffset.y,
+        cameraTarget.z + panOffset.z
+      );
+    };
+    updateCameraPos();
+
+    // Renderer
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
       renderer.shadowMap.enabled = true;
-      currentMount.appendChild(renderer.domElement);
-    } catch (error) {
-      setLoadingError('Failed to create renderer');
+      mount.appendChild(renderer.domElement);
+    } catch (err) {
+      setLoadingError("Failed to create renderer");
       return;
     }
 
-    const testCube = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
-    );
-    testCube.position.set(0, 0.5, 0);
-    scene.add(testCube);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(5, 5, 5);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
-
-    const groundGeometry = new THREE.PlaneGeometry(50, 50);
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    // Cyber Garage floor & glow grid
+    const groundGeo = new THREE.PlaneGeometry(80, 80);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x141418,
+      metalness: 0.2,
+      roughness: 0.8,
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = 0;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const gridHelper = new THREE.GridHelper(50, 50, 0x666666, 0x444444);
-    scene.add(gridHelper);
+    const grid = new THREE.GridHelper(80, 80, 0x5a3bff, 0x2b2055);
+    grid.position.y = 0.01;
+    scene.add(grid);
 
-    const onMouseDown = (e) => {
+    // Lighting — cool overhead + warm side = cyber garage contrast
+    const amb = new THREE.AmbientLight(0xffffff, 0.55);
+    scene.add(amb);
+
+    const dirCool = new THREE.DirectionalLight(0x8ab4ff, 0.9);
+    dirCool.position.set(-6, 8, 5);
+    dirCool.castShadow = true;
+    scene.add(dirCool);
+
+    const dirWarm = new THREE.DirectionalLight(0xff7a3f, 0.6);
+    dirWarm.position.set(7, 6, -5);
+    dirWarm.castShadow = true;
+    scene.add(dirWarm);
+
+    // A tiny debug cube (kept for parity)
+    const testCube = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshBasicMaterial({ color: 0xff0080, wireframe: true })
+    );
+    testCube.position.set(0, 0.5, 0);
+    scene.add(testCube);
+
+    // Mouse handlers
+    const onDown = (e) => {
       if (e.button === 2 || e.button === 1) {
         isPanning = true;
         e.preventDefault();
       } else if (e.button === 0) {
         isDragging = true;
       }
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      prevMouse = { x: e.clientX, y: e.clientY };
     };
+    const onMove = (e) => {
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
 
-    const onMouseMove = (e) => {
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
-      
       if (isDragging) {
-        cameraTheta -= deltaX * 0.01;
-        cameraPhi -= deltaY * 0.01;
+        cameraTheta -= dx * 0.01;
+        cameraPhi -= dy * 0.01;
         cameraPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraPhi));
-        updateCameraPosition();
+        updateCameraPos();
       } else if (isPanning) {
         const panSpeed = 0.005 * cameraRadius;
         const right = new THREE.Vector3();
         const up = new THREE.Vector3(0, 1, 0);
-        
+
         camera.getWorldDirection(right);
         right.cross(up).normalize();
-        
-        panOffset.add(right.multiplyScalar(-deltaX * panSpeed));
-        panOffset.y += deltaY * panSpeed;
-        
-        updateCameraPosition();
-      }
-      
-      previousMousePosition = { x: e.clientX, y: e.clientY };
-    };
 
-    const onMouseUp = () => {
+        panOffset.add(right.multiplyScalar(-dx * panSpeed));
+        panOffset.y += dy * panSpeed;
+        updateCameraPos();
+      }
+      prevMouse = { x: e.clientX, y: e.clientY };
+    };
+    const onUp = () => {
       isDragging = false;
       isPanning = false;
     };
-
     const onWheel = (e) => {
       e.preventDefault();
       const zoomSpeed = 0.1;
       cameraRadius += e.deltaY * zoomSpeed * 0.01;
-      cameraRadius = Math.max(2, Math.min(20, cameraRadius));
-      updateCameraPosition();
+      cameraRadius = Math.max(2, Math.min(22, cameraRadius));
+      updateCameraPos();
     };
+    const onContext = (e) => e.preventDefault();
 
-    const onContextMenu = (e) => {
-      e.preventDefault();
-    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.addEventListener("wheel", onWheel, { passive: false });
+    document.addEventListener("contextmenu", onContext);
 
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('wheel', onWheel, { passive: false });
-    document.addEventListener('contextmenu', onContextMenu);
-
+    // Load a car
     const loadCar = async () => {
       setIsLoading(true);
       setCarParts([]);
       setSelectedParts([]);
 
       try {
-        const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+        const { GLTFLoader } = await import(
+          "three/examples/jsm/loaders/GLTFLoader.js"
+        );
         const loader = new GLTFLoader();
 
         loader.load(
           `/models/${selectedCar}`,
           (gltf) => {
-            scene.remove(testCube);
-            
-            if (currentModel) {
-              scene.remove(currentModel);
-            }
+            // clear testcube after first model load
+            if (testCube.parent) testCube.parent.remove(testCube);
+
+            if (currentModel) scene.remove(currentModel);
 
             currentModel = gltf.scene;
             modelRef.current = currentModel;
 
+            // collect parts
             const parts = [];
             currentModel.traverse((child) => {
               if (child.isMesh) {
                 const bbox = new THREE.Box3().setFromObject(child);
                 const center = bbox.getCenter(new THREE.Vector3());
                 const size = bbox.getSize(new THREE.Vector3());
-                
-                let autoLabel = 'body';
-                
-                if (size.x < 1 && size.z < 1 && center.y < 0.5) {
-                  autoLabel = 'wheel';
-                } else if (center.z > 1.5) {
-                  autoLabel = 'front';
-                } else if (center.z < -1.5) {
-                  autoLabel = 'rear';
-                } else if (center.y > 1) {
-                  autoLabel = 'top';
-                }
-                
+
+                let autoLabel = "body";
+                if (size.x < 1 && size.z < 1 && center.y < 0.5) autoLabel = "wheel";
+                else if (center.z > 1.5) autoLabel = "front";
+                else if (center.z < -1.5) autoLabel = "rear";
+                else if (center.y > 1) autoLabel = "top";
+
                 parts.push({
                   name: child.name,
                   visible: true,
-                  color: child.material?.color ? '#' + child.material.color.getHexString() : '#ffffff',
-                  position: { x: center.x.toFixed(2), y: center.y.toFixed(2), z: center.z.toFixed(2) },
-                  size: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
-                  label: autoLabel
+                  color: child.material?.color
+                    ? "#" + child.material.color.getHexString()
+                    : "#ffffff",
+                  position: {
+                    x: center.x.toFixed(2),
+                    y: center.y.toFixed(2),
+                    z: center.z.toFixed(2),
+                  },
+                  size: {
+                    x: size.x.toFixed(2),
+                    y: size.y.toFixed(2),
+                    z: size.z.toFixed(2),
+                  },
+                  label: autoLabel,
                 });
+
+                child.castShadow = true;
+                child.receiveShadow = true;
               }
             });
-            
             setCarParts(parts);
 
+            // center & scale
             const box = new THREE.Box3().setFromObject(currentModel);
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
@@ -540,131 +577,105 @@ function CarMod() {
             if (maxDim > 3) {
               const scale = 3 / maxDim;
               currentModel.scale.multiplyScalar(scale);
-              
-              const newBox = new THREE.Box3().setFromObject(currentModel);
-              const newCenter = newBox.getCenter(new THREE.Vector3());
-              currentModel.position.x = -newCenter.x;
-              currentModel.position.z = -newCenter.z;
-              currentModel.position.y = -newBox.min.y;
+
+              const nBox = new THREE.Box3().setFromObject(currentModel);
+              const nCenter = nBox.getCenter(new THREE.Vector3());
+              currentModel.position.x = -nCenter.x;
+              currentModel.position.z = -nCenter.z;
+              currentModel.position.y = -nBox.min.y;
             }
 
-            const carConfig = cars.find(c => c.file === selectedCar);
-            if (carConfig?.offset) {
-              if (carConfig.offset.x) currentModel.position.x += carConfig.offset.x;
-              if (carConfig.offset.y) currentModel.position.y += carConfig.offset.y;
-              if (carConfig.offset.z) currentModel.position.z += carConfig.offset.z;
+            const cfg = cars.find((c) => c.file === selectedCar);
+            if (cfg?.offset) {
+              if (cfg.offset.x) currentModel.position.x += cfg.offset.x;
+              if (cfg.offset.y) currentModel.position.y += cfg.offset.y;
+              if (cfg.offset.z) currentModel.position.z += cfg.offset.z;
             }
-
-            currentModel.traverse((child) => {
-              if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-              }
-            });
 
             scene.add(currentModel);
             setIsLoading(false);
             setDebugInfo(`Loaded: ${parts.length} parts`);
           },
           undefined,
-          (error) => {
-            setLoadingError(`Failed to load car`);
+          () => {
+            setLoadingError("Failed to load car");
             setIsLoading(false);
           }
         );
-      } catch (error) {
-        setLoadingError('Failed to load');
+      } catch (err) {
+        setLoadingError("Failed to load");
         setIsLoading(false);
       }
     };
 
     loadCar();
 
+    // animate
     const animate = () => {
       requestAnimationFrame(animate);
-      if (testCube.parent) {
-        testCube.rotation.y += 0.01;
-      }
       renderer.render(scene, camera);
     };
     animate();
 
-    const handleResize = () => {
-      if (!currentMount) return;
-      const width = currentMount.clientWidth;
-      const height = currentMount.clientHeight;
-      camera.aspect = width / height;
+    // resize
+    const onResize = () => {
+      if (!mount) return;
+      const w = mount.clientWidth;
+      const h = mount.clientHeight;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      renderer.setSize(w, h);
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", onResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('wheel', onWheel);
-      document.removeEventListener('contextmenu', onContextMenu);
-      
-      if (currentMount && renderer.domElement && currentMount.contains(renderer.domElement)) {
-        currentMount.removeChild(renderer.domElement);
-      }
-      
-      if (renderer) {
-        renderer.dispose();
-      }
-    };
-  }, [selectedCar]);
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("wheel", onWheel);
+      document.removeEventListener("contextmenu", onContext);
 
-  const filteredParts = carParts.filter(part => 
-    part.name.toLowerCase().includes(filterText.toLowerCase()) ||
-    part.label.toLowerCase().includes(filterText.toLowerCase())
+      if (mount && renderer.domElement && mount.contains(renderer.domElement)) {
+        mount.removeChild(renderer.domElement);
+      }
+      if (renderer) renderer.dispose();
+    };
+  }, [selectedCar]); // reload when car changes
+
+  // ----------------- filter -----------------
+  const filteredParts = carParts.filter(
+    (p) =>
+      p.name.toLowerCase().includes(filterText.toLowerCase()) ||
+      p.label.toLowerCase().includes(filterText.toLowerCase())
   );
 
+  // ----------------- theme helpers -----------------
+  const T = futuristicTheme || {};
+  const c = (path, fallback) =>
+    path.split(".").reduce((a, k) => (a && a[k] !== undefined ? a[k] : null), T) ??
+    fallback;
+
+  // -------------------------------------------------
+  // RENDER
+  // -------------------------------------------------
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative', overflow: 'hidden' }}>
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 10,
-        display: 'flex',
-        gap: '20px',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        maxWidth: '95vw',
-      }}>
-        <button
-          onClick={() => window.location.href = '/'}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: '#222',
-            color: '#fff',
-            border: '3px solid #555',
-            cursor: 'pointer',
-            fontWeight: '800',
-          }}
-        >
+    <div style={styles.page}>
+      {/* Cyber Garage gradient + scanlines + vignette */}
+      <div style={styles.cyberGradient} />
+      <div style={styles.scanlines} />
+      <div style={styles.vignette} />
+
+      {/* Top HUD Bar */}
+      <div style={styles.topBar}>
+        <button style={styles.hudBtn} onClick={() => (window.location.href = "/")}>
           🏠 Home
         </button>
 
         <select
           value={selectedCar}
           onChange={(e) => setSelectedCar(e.target.value)}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: '#222',
-            color: '#fff',
-            border: '3px solid #555',
-            cursor: 'pointer',
-            fontWeight: '800',
-          }}
+          style={styles.hudSelect}
         >
           {cars.map((car) => (
             <option key={car.file} value={car.file}>
@@ -674,917 +685,366 @@ function CarMod() {
         </select>
 
         <button
-          onClick={() => setShowModPanel(!showModPanel)}
+          onClick={() => setShowModPanel((s) => !s)}
           disabled={carParts.length === 0}
           style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: carParts.length === 0 ? '#333' : (showModPanel ? '#4CAF50' : '#222'),
-            color: carParts.length === 0 ? '#666' : '#fff',
-            border: showModPanel ? '3px solid #4CAF50' : '3px solid #555',
-            cursor: carParts.length === 0 ? 'not-allowed' : 'pointer',
-            fontWeight: '800',
+            ...styles.hudBtn,
+            ...(carParts.length === 0
+              ? styles.hudBtnDisabled
+              : showModPanel
+              ? styles.hudBtnActiveGreen
+              : {}),
           }}
         >
           🔧 Parts ({carParts.length})
         </button>
 
         <button
-          onClick={() => setShowVotingPanel(!showVotingPanel)}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: showVotingPanel ? '#2196F3' : '#222',
-            color: '#fff',
-            border: showVotingPanel ? '3px solid #2196F3' : '3px solid #555',
-            cursor: 'pointer',
-            fontWeight: '800',
-          }}
+          onClick={() => setShowVotingPanel((s) => !s)}
+          style={{ ...styles.hudBtn, ...(showVotingPanel ? styles.hudBtnActiveBlue : {}) }}
         >
           🗳️ Vote
         </button>
 
         <button
-          onClick={() => setShowStatusPanel(!showStatusPanel)}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: showStatusPanel ? '#9C27B0' : '#222',
-            color: '#fff',
-            border: showStatusPanel ? '3px solid #9C27B0' : '3px solid #555',
-            cursor: 'pointer',
-            fontWeight: '800',
-          }}
+          onClick={() => setShowStatusPanel((s) => !s)}
+          style={{ ...styles.hudBtn, ...(showStatusPanel ? styles.hudBtnActivePurple : {}) }}
         >
           📊 My Status
         </button>
 
         <button
-          onClick={() => setShowGalleryPanel(!showGalleryPanel)}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: showGalleryPanel ? '#9C27B0' : '#222',
-            color: '#fff',
-            border: showGalleryPanel ? '3px solid #9C27B0' : '3px solid #555',
-            cursor: 'pointer',
-            fontWeight: '800',
-          }}
+          onClick={() => setShowGalleryPanel((s) => !s)}
+          style={{ ...styles.hudBtn, ...(showGalleryPanel ? styles.hudBtnActivePurple : {}) }}
         >
           🏆 Gallery
         </button>
 
         {isAdmin && (
           <button
-            onClick={() => setShowAdminPanel(!showAdminPanel)}
-            style={{
-              padding: '22px 40px',
-              fontSize: '26px',
-              borderRadius: '14px',
-              background: showAdminPanel ? '#f44336' : '#222',
-              color: '#fff',
-              border: showAdminPanel ? '3px solid #f44336' : '3px solid #555',
-              cursor: 'pointer',
-              fontWeight: '800',
-            }}
+            onClick={() => setShowAdminPanel((s) => !s)}
+            style={{ ...styles.hudBtn, ...(showAdminPanel ? styles.hudBtnActiveRed : {}) }}
           >
             ⚙️ Admin
           </button>
         )}
 
         <button
-          onClick={() => setShowUploadPanel(!showUploadPanel)}
-          style={{
-            padding: '22px 40px',
-            fontSize: '26px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
-            color: '#fff',
-            border: '3px solid #FFB74D',
-            cursor: 'pointer',
-            fontWeight: '900',
-            boxShadow: '0 6px 16px rgba(255,152,0,0.5)',
-          }}
+          onClick={() => setShowUploadPanel((s) => !s)}
+          style={{ ...styles.hudBtn, ...styles.ctaBtn }}
         >
           🏆 Win Access!
         </button>
       </div>
 
+      {/* Mod Panel (Resizable) */}
       {showModPanel && carParts.length > 0 && (
         <>
           <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: panelWidth,
-              bottom: 0,
-              width: '10px',
-              background: 'transparent',
-              cursor: 'ew-resize',
-              zIndex: 15,
-            }}
+            style={styles.dragHandle(panelWidth)}
             onMouseDown={() => setIsDraggingResize(true)}
           >
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '4px',
-              height: '60px',
-              background: '#555',
-              borderRadius: '2px',
-            }} />
+            <div style={styles.dragGrip} />
           </div>
 
-          <div 
-            style={{
-              position: 'absolute',
-              top: '90px',
-              right: '0',
-              bottom: '0',
-              width: `${panelWidth}px`,
-              background: 'rgba(0,0,0,0.95)',
-              border: '3px solid #444',
-              borderRight: 'none',
-              borderRadius: '16px 0 0 0',
-              padding: '30px',
-              zIndex: 10,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onWheel={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ color: '#fff', margin: '0 0 25px 0', fontSize: '42px', fontWeight: '900' }}>
-              🔧 Part Manager
-            </h3>
+          <div style={styles.modPanel(panelWidth)} onWheel={(e) => e.stopPropagation()}>
+            <h3 style={styles.panelTitle}>🔧 Part Manager</h3>
 
             <input
               type="text"
               placeholder="🔍 Search parts..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '20px',
-                marginBottom: '20px',
-                borderRadius: '12px',
-                background: '#222',
-                color: '#fff',
-                border: '3px solid #555',
-                fontSize: '24px',
-                fontWeight: '700',
-              }}
+              style={styles.searchInput}
             />
 
-            <div style={{ 
-              display: 'flex', 
-              gap: '14px', 
-              marginBottom: '24px',
-              flexWrap: 'wrap',}}>
-              <button
-                onClick={showAllParts}
-                style={{
-                  padding: '18px 28px',
-                  fontSize: '22px',
-                  borderRadius: '10px',
-                  background: '#4CAF50',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '800',
-                }}
-              >
+            <div style={styles.toolRow}>
+              <button style={styles.toolBtnGreen} onClick={showAllParts}>
                 👁️ Show All
               </button>
               <button
-                onClick={hideAllExceptSelected}
-                disabled={selectedParts.length === 0}
                 style={{
-                  padding: '18px 28px',
-                  fontSize: '22px',
-                  borderRadius: '10px',
-                  background: selectedParts.length === 0 ? '#333' : '#ff9800',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: selectedParts.length === 0 ? 'not-allowed' : 'pointer',
-                  fontWeight: '800',
+                  ...styles.toolBtnAmber,
+                  ...(selectedParts.length === 0 ? styles.disabled : {}),
                 }}
+                disabled={selectedParts.length === 0}
+                onClick={hideAllExceptSelected}
               >
                 🎯 Isolate ({selectedParts.length})
               </button>
-              <button
-                onClick={downloadBlenderGuide}
-                style={{
-                  padding: '18px 28px',
-                  fontSize: '22px',
-                  borderRadius: '10px',
-                  background: '#9C27B0',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '800',
-                }}
-              >
+              <button style={styles.toolBtnPurple} onClick={downloadBlenderGuide}>
                 📖 Guide
               </button>
             </div>
 
             {selectedParts.length > 0 && (
-              <div style={{
-                padding: '20px',
-                background: '#1a4d2e',
-                borderRadius: '12px',
-                marginBottom: '24px',
-                border: '3px solid #2d7a4f',
-              }}>
-                <label style={{ color: '#fff', fontSize: '22px', display: 'block', marginBottom: '14px', fontWeight: '800' }}>
-                  🎨 Color Selected Parts:
-                </label>
+              <div style={styles.colorBlock}>
+                <label style={styles.colorLabel}>🎨 Color Selected Parts:</label>
                 <input
                   type="color"
                   onChange={(e) => colorSelectedParts(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '60px',
-                    border: '3px solid #2d7a4f',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                  }}
+                  style={styles.colorPicker}
                 />
               </div>
             )}
-            
-            <div style={{ fontSize: '20px', color: '#aaa', marginBottom: '20px', fontWeight: '800' }}>
+
+            <div style={styles.partsMeta}>
               Showing {filteredParts.length} of {carParts.length} parts
             </div>
 
-            <div 
-              style={{ 
-                flex: 1, 
-                overflowY: 'auto',
-                overflowX: 'hidden',
-              }}
-              onWheel={(e) => e.stopPropagation()}
-            >
-              {filteredParts.map((part, index) => (
-                <div key={index} style={{
-                  background: selectedParts.includes(part.name) ? '#1a3a5a' : '#222',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  borderRadius: '12px',
-                  border: selectedParts.includes(part.name) ? '4px solid #4CAF50' : '3px solid #333',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '16px',
-                  }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            <div style={styles.partsList} onWheel={(e) => e.stopPropagation()}>
+              {filteredParts.map((part, idx) => {
+                const selected = selectedParts.includes(part.name);
+                return (
+                  <div
+                    key={`${part.name}_${idx}`}
+                    style={styles.partCard(selected)}
+                  >
+                    <div style={styles.partHeader}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => togglePartSelection(part.name)}
+                          style={styles.partCheckbox}
+                        />
+                        <span
+                          style={{
+                            color: part.visible ? "#fff" : "#666",
+                            fontSize: 20,
+                            fontFamily: "monospace",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {part.name}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                          title="Download this part"
+                          onClick={() => exportPartAsGLB(part.name)}
+                          style={styles.partIconBtnBlue}
+                        >
+                          📥
+                        </button>
+                        <button
+                          onClick={() => togglePartVisibility(part.name)}
+                          style={part.visible ? styles.partIconBtnGreen : styles.partIconBtnRed}
+                        >
+                          {part.visible ? "👁️" : "🚫"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={styles.partInfo}>
+                      📍 Position: ({part.position.x}, {part.position.y}, {part.position.z})
+                      <br />
+                      📏 Size: ({part.size.x}, {part.size.y}, {part.size.z})
+                    </div>
+
+                    <div style={styles.partFooterRow}>
+                      <select
+                        value={part.label}
+                        onChange={(e) => setPartLabel(part.name, e.target.value)}
+                        style={styles.partSelect}
+                      >
+                        <option value="body">Body</option>
+                        <option value="wheel">Wheel</option>
+                        <option value="front">Front</option>
+                        <option value="rear">Rear</option>
+                        <option value="top">Top</option>
+                        <option value="bumper">Bumper</option>
+                        <option value="door">Door</option>
+                        <option value="hood">Hood</option>
+                        <option value="trunk">Trunk</option>
+                        <option value="window">Window</option>
+                        <option value="mirror">Mirror</option>
+                        <option value="light">Light</option>
+                        <option value="grille">Grille</option>
+                        <option value="spoiler">Spoiler</option>
+                      </select>
+
                       <input
-                        type="checkbox"
-                        checked={selectedParts.includes(part.name)}
-                        onChange={() => togglePartSelection(part.name)}
-                        style={{ 
-                          marginRight: '16px', 
-                          cursor: 'pointer',
-                          width: '28px',
-                          height: '28px',
-                          accentColor: '#4CAF50',
-                        }}
+                        type="color"
+                        value={part.color}
+                        onChange={(e) => changePartColor(part.name, e.target.value)}
+                        style={styles.partColor}
                       />
-                      <span style={{
-                        color: part.visible ? '#fff' : '#666',
-                        fontSize: '22px',
-                        fontFamily: 'monospace',
-                        fontWeight: '800',
-                      }}>
-                        {part.name}
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      <button
-                        onClick={() => exportPartAsGLB(part.name)}
-                        title="Download this part"
-                        style={{
-                          padding: '14px 20px',
-                          fontSize: '24px',
-                          borderRadius: '10px',
-                          background: '#2196F3',
-                          color: '#fff',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        📥
-                      </button>
-                      <button
-                        onClick={() => togglePartVisibility(part.name)}
-                        style={{
-                          padding: '14px 20px',
-                          fontSize: '24px',
-                          borderRadius: '10px',
-                          background: part.visible ? '#4CAF50' : '#f44',
-                          color: '#fff',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {part.visible ? '👁️' : '🚫'}
-                      </button>
                     </div>
                   </div>
-
-                  <div style={{ fontSize: '18px', color: '#ddd', marginBottom: '14px', fontFamily: 'monospace', fontWeight: '700', lineHeight: '1.8' }}>
-                    📍 Position: ({part.position.x}, {part.position.y}, {part.position.z})<br/>
-                    📏 Size: ({part.size.x}, {part.size.y}, {part.size.z})
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <select
-                      value={part.label}
-                      onChange={(e) => setPartLabel(part.name, e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '14px',
-                        fontSize: '20px',
-                        borderRadius: '10px',
-                        background: '#333',
-                        color: '#fff',
-                        border: '3px solid #555',
-                        cursor: 'pointer',
-                        fontWeight: '800',
-                      }}
-                    >
-                      <option value="body">Body</option>
-                      <option value="wheel">Wheel</option>
-                      <option value="front">Front</option>
-                      <option value="rear">Rear</option>
-                      <option value="top">Top</option>
-                      <option value="bumper">Bumper</option>
-                      <option value="door">Door</option>
-                      <option value="hood">Hood</option>
-                      <option value="trunk">Trunk</option>
-                      <option value="window">Window</option>
-                      <option value="mirror">Mirror</option>
-                      <option value="light">Light</option>
-                      <option value="grille">Grille</option>
-                      <option value="spoiler">Spoiler</option>
-                    </select>
-
-                    <input
-                      type="color"
-                      value={part.color}
-                      onChange={(e) => changePartColor(part.name, e.target.value)}
-                      style={{
-                        width: '70px',
-                        height: '56px',
-                        border: '3px solid #666',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </>
       )}
 
-      {/* VOTING PANEL */}
-      {showVotingPanel && <VotingPanel userId={currentUserId} onClose={() => setShowVotingPanel(false)} />}
+      {/* Panels */}
+      {showVotingPanel && (
+        <VotingPanel userId={currentUserId} onClose={() => setShowVotingPanel(false)} />
+      )}
+      {showStatusPanel && (
+        <StatusPanel userId={currentUserId} onClose={() => setShowStatusPanel(false)} />
+      )}
 
-      {/* STATUS PANEL */}
-      {showStatusPanel && <StatusPanel userId={currentUserId} onClose={() => setShowStatusPanel(false)} />}
-
+      {/* Winners Gallery */}
       {showGalleryPanel && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.9)',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          overflow: 'auto',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '1200px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            background: '#1a1a1a',
-            border: '3px solid #9C27B0',
-            borderRadius: '16px',
-            padding: '30px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: '#9C27B0', margin: 0, fontSize: '32px', fontWeight: '800' }}>
-                🏆 Winners Gallery
-              </h2>
-              <button
-                onClick={() => setShowGalleryPanel(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '36px',
-                  cursor: 'pointer',
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-            
-            <div style={{ color: '#fff', fontSize: '18px', textAlign: 'center', padding: '40px' }}>
-              <p>🎨 Winners will appear here once the first competition concludes!</p>
-              <p style={{ color: '#888', marginTop: '10px' }}>Check back soon to see amazing custom car parts from our community.</p>
-            </div>
+        <ModalShell onClose={() => setShowGalleryPanel(false)} border="#9C27B0">
+          <h2 style={{ ...styles.modalTitle, color: "#9C27B0" }}>🏆 Winners Gallery</h2>
+          <div style={styles.modalBodyCenter}>
+            <p style={{ color: "#fff", fontSize: 18 }}>
+              🎨 Winners will appear here once the first competition concludes!
+            </p>
+            <p style={{ color: "#888", marginTop: 10 }}>
+              Check back soon to see amazing custom car parts from our community.
+            </p>
           </div>
-        </div>
+        </ModalShell>
       )}
 
+      {/* Admin */}
       {showAdminPanel && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.9)',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          overflow: 'auto',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '1400px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            background: '#1a1a1a',
-            border: '3px solid #f44336',
-            borderRadius: '16px',
-            padding: '30px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: '#f44336', margin: 0, fontSize: '32px', fontWeight: '800' }}>
-                ⚙️ Admin Dashboard
-              </h2>
-              <button
-                onClick={() => setShowAdminPanel(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '36px',
-                  cursor: 'pointer',
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
+        <ModalShell onClose={() => setShowAdminPanel(false)} border="#f44336" maxWidth={1400}>
+          <h2 style={{ ...styles.modalTitle, color: "#f44336" }}>⚙️ Admin Dashboard</h2>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: '20px',
-              marginBottom: '30px',
-            }}>
-              <div style={{
-                background: '#2d1810',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '2px solid #4a2818',
-              }}>
-                <h3 style={{ color: '#FF9800', margin: '0 0 10px 0', fontSize: '20px' }}>📊 Total Submissions</h3>
-                <p style={{ color: '#fff', fontSize: '32px', fontWeight: '800', margin: 0 }}>0</p>
-              </div>
+          <div style={styles.adminGrid}>
+            <AdminStatCard color="#FF9800" bg="#2d1810" border="#4a2818" title="📊 Total Submissions" value="0" />
+            <AdminStatCard color="#4CAF50" bg="#1a2d1e" border="#2d4a38" title="⏳ Pending Review" value="0" />
+            <AdminStatCard color="#2196F3" bg="#1a1d2d" border="#2d384a" title="✅ Approved" value="0" />
+            <AdminStatCard color="#9C27B0" bg="#2d1a2d" border="#4a2d4a" title="🏆 Winners" value="0" />
+          </div>
 
-              <div style={{
-                background: '#1a2d1e',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '2px solid #2d4a38',
-              }}>
-                <h3 style={{ color: '#4CAF50', margin: '0 0 10px 0', fontSize: '20px' }}>⏳ Pending Review</h3>
-                <p style={{ color: '#fff', fontSize: '32px', fontWeight: '800', margin: 0 }}>0</p>
-              </div>
-
-              <div style={{
-                background: '#1a1d2d',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '2px solid #2d384a',
-              }}>
-                <h3 style={{ color: '#2196F3', margin: '0 0 10px 0', fontSize: '20px' }}>✅ Approved</h3>
-                <p style={{ color: '#fff', fontSize: '32px', fontWeight: '800', margin: 0 }}>0</p>
-              </div>
-
-              <div style={{
-                background: '#2d1a2d',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '2px solid #4a2d4a',
-              }}>
-                <h3 style={{ color: '#9C27B0', margin: '0 0 10px 0', fontSize: '20px' }}>🏆 Winners</h3>
-                <p style={{ color: '#fff', fontSize: '32px', fontWeight: '800', margin: 0 }}>0</p>
-              </div>
-            </div>
-
-            <div style={{
-              background: '#222',
-              padding: '20px',
-              borderRadius: '12px',
-              border: '2px solid #444',
-            }}>
-              <h3 style={{ color: '#fff', margin: '0 0 15px 0', fontSize: '24px', fontWeight: '700' }}>
-                📋 Recent Submissions
-              </h3>
-              <div style={{ color: '#888', textAlign: 'center', padding: '40px', fontSize: '18px' }}>
-                No submissions yet. Once users start submitting, they'll appear here for review.
-              </div>
+          <div style={styles.adminTable}>
+            <h3 style={{ color: "#fff", margin: "0 0 15px 0", fontSize: 24, fontWeight: 700 }}>
+              📋 Recent Submissions
+            </h3>
+            <div style={{ color: "#888", textAlign: "center", padding: 40, fontSize: 18 }}>
+              No submissions yet. Once users start submitting, they'll appear here for review.
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
 
+      {/* Upload */}
       {showUploadPanel && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.85)',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          overflow: 'auto',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '600px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            background: '#1a1a1a',
-            border: '3px solid #FF9800',
-            borderRadius: '16px',
-            padding: '30px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: '#FF9800', margin: 0, fontSize: '32px', fontWeight: '800' }}>
-                🏆 Win Lifetime Access!
-              </h2>
-              <button
-                onClick={() => setShowUploadPanel(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: '36px',
-                  cursor: 'pointer',
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
+        <ModalShell onClose={() => setShowUploadPanel(false)} border="#FF9800" maxWidth={640}>
+          <h2 style={{ ...styles.modalTitle, color: "#FF9800" }}>🧑‍🎨 Submit Your Part — Win Lifetime Access!</h2>
+
+          <div style={styles.noticeCard}>
+            <h3 style={{ color: "#4CAF50", margin: "0 0 12px 0", fontSize: 20, fontWeight: 700 }}>
+              🏁 10-Week Launch Competition
+            </h3>
+            <p style={{ color: "#fff", margin: 0, lineHeight: 1.7, fontSize: 15 }}>
+              • Weekly Winner: Lifetime Premium Access<br />
+              • Grand Prize: £50 Cash
+            </p>
+            <div style={styles.noticeWarning}>
+              ⚠️ After 10 weeks, only £50 prizes remain!
             </div>
-
-            <div style={{
-              background: '#1a4d2e',
-              padding: '20px',
-              borderRadius: '12px',
-              marginBottom: '25px',
-              border: '3px solid #2d7a4f',
-            }}>
-              <h3 style={{ color: '#4CAF50', margin: '0 0 15px 0', fontSize: '22px', fontWeight: '700' }}>
-                🏆 10-Week Launch Competition!
-              </h3>
-              <p style={{ color: '#fff', fontSize: '16px', margin: 0, lineHeight: '1.8' }}>
-                <strong>First 10 Weeks Only:</strong><br/>
-                • Weekly Winner: Lifetime Premium Access<br/>
-                • Grand Prize: £50 Cash<br/>
-                <br/>
-                <span style={{ fontSize: '15px', color: '#ffcccc', background: '#4a1818', padding: '8px 12px', borderRadius: '8px', display: 'inline-block' }}>
-                  ⚠️ After 10 weeks, only £50 prizes remain!
-                </span>
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmitUpload}>
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Your Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={uploadData.userName}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, userName: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                  }}
-                  placeholder="John Doe"
-                />
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={uploadData.email}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, email: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                  }}
-                  placeholder="john@example.com"
-                />
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Part Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={uploadData.partName}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, partName: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                  }}
-                  placeholder="e.g., Carbon Fiber Sport Bumper"
-                />
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Part Type *
-                </label>
-                <select
-                  required
-                  value={uploadData.partType}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, partType: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="">Select part type...</option>
-                  {partTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Compatible Car Model *
-                </label>
-                <select
-                  required
-                  value={uploadData.carModel}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, carModel: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="">Select car model...</option>
-                  {cars.map(car => (
-                    <option key={car.file} value={car.name}>{car.name}</option>
-                  ))}
-                  <option value="Universal">Universal</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Description
-                </label>
-                <textarea
-                  value={uploadData.description}
-                  onChange={(e) => setUploadData(prev => ({ ...prev, description: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '16px',
-                    minHeight: '80px',
-                    resize: 'vertical',
-                  }}
-                  placeholder="Describe your custom part..."
-                />
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ color: '#fff', fontSize: '16px', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                  Upload File (.glb or .gltf) * <span style={{ color: '#888', fontSize: '14px' }}>(Max 50MB)</span>
-                </label>
-                <input
-                  type="file"
-                  required
-                  accept=".glb,.gltf"
-                  onChange={handleFileUpload}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '8px',
-                    background: '#222',
-                    color: '#fff',
-                    border: '2px solid #555',
-                    fontSize: '15px',
-                    cursor: 'pointer',
-                  }}
-                />
-                {uploadData.file && (
-                  <div style={{ color: '#4CAF50', fontSize: '14px', marginTop: '8px', fontWeight: '600' }}>
-                    ✓ {uploadData.file.name} ({(uploadData.file.size / 1024 / 1024).toFixed(2)} MB)
-                  </div>
-                )}
-              </div>
-
-              <div style={{
-                background: '#2c1810',
-                padding: '16px',
-                borderRadius: '8px',
-                marginBottom: '20px',
-                border: '2px solid #4a2818',
-              }}>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'flex-start', 
-                  cursor: 'pointer',
-                  color: '#fff',
-                  fontSize: '15px',
-                }}>
-                  <input
-                    type="checkbox"
-                    required
-                    checked={uploadData.agreedToTerms}
-                    onChange={(e) => setUploadData(prev => ({ ...prev, agreedToTerms: e.target.checked }))}
-                    style={{
-                      marginRight: '12px',
-                      marginTop: '3px',
-                      cursor: 'pointer',
-                      width: '20px',
-                      height: '20px',
-                    }}
-                  />
-                  <span>
-                    I agree to the Terms & Conditions. This is my original work and I grant full rights. *
-                  </span>
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                style={{
-                  width: '100%',
-                  padding: '18px',
-                  borderRadius: '10px',
-                  background: uploadData.agreedToTerms ? 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)' : '#333',
-                  color: '#fff',
-                  border: 'none',
-                  fontSize: '20px',
-                  fontWeight: '800',
-                  cursor: uploadData.agreedToTerms ? 'pointer' : 'not-allowed',
-                }}
-                disabled={!uploadData.agreedToTerms}
-              >
-                🚀 Submit Entry
-              </button>
-            </form>
           </div>
-        </div>
+
+          <form onSubmit={handleSubmitUpload}>
+            <Field
+              label="Your Name *"
+              type="text"
+              value={uploadData.userName}
+              onChange={(v) => setUploadData((p) => ({ ...p, userName: v }))}
+              placeholder="John Doe"
+            />
+            <Field
+              label="Email Address *"
+              type="email"
+              value={uploadData.email}
+              onChange={(v) => setUploadData((p) => ({ ...p, email: v }))}
+              placeholder="john@example.com"
+            />
+            <Field
+              label="Part Name *"
+              type="text"
+              value={uploadData.partName}
+              onChange={(v) => setUploadData((p) => ({ ...p, partName: v }))}
+              placeholder="e.g., Carbon Fiber Sport Bumper"
+            />
+
+            <SelectField
+              label="Part Type *"
+              value={uploadData.partType}
+              onChange={(v) => setUploadData((p) => ({ ...p, partType: v }))}
+              options={partTypes}
+              placeholder="Select part type..."
+            />
+
+            <SelectField
+              label="Compatible Car Model *"
+              value={uploadData.carModel}
+              onChange={(v) => setUploadData((p) => ({ ...p, carModel: v }))}
+              options={[...cars.map((c) => c.name), "Universal"]}
+              placeholder="Select car model..."
+            />
+
+            <TextArea
+              label="Description"
+              value={uploadData.description}
+              onChange={(v) => setUploadData((p) => ({ ...p, description: v }))}
+              placeholder="Describe your custom part..."
+            />
+
+            <FileField
+              label={
+                <>
+                  Upload File (.glb or .gltf) *{" "}
+                  <span style={{ color: "#bbb", fontSize: 13 }}>(Max 50MB)</span>
+                </>
+              }
+              onChange={handleFileUpload}
+              file={uploadData.file}
+            />
+
+            <div style={styles.termsBox}>
+              <label style={styles.termsLabel}>
+                <input
+                  type="checkbox"
+                  required
+                  checked={uploadData.agreedToTerms}
+                  onChange={(e) =>
+                    setUploadData((p) => ({ ...p, agreedToTerms: e.target.checked }))
+                  }
+                  style={styles.termsCheckbox}
+                />
+                <span>
+                  I agree to the Terms & Conditions. This is my original work and I grant
+                  full rights. *
+                </span>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              style={{
+                ...styles.submitBtn,
+                ...(uploadData.agreedToTerms ? {} : styles.disabled),
+              }}
+              disabled={!uploadData.agreedToTerms}
+            >
+              🚀 Submit Entry
+            </button>
+          </form>
+        </ModalShell>
       )}
 
-      <div style={{
-        position: 'absolute',
-        top: '90px',
-        left: '20px',
-        color: '#0f0',
-        fontSize: '20px',
-        background: 'rgba(0,0,0,0.9)',
-        padding: '18px',
-        borderRadius: '10px',
-        fontFamily: 'monospace',
-        zIndex: 10,
-        fontWeight: '800',
-      }}>
-        {debugInfo}
-      </div>
+      {/* Left Debug HUD */}
+      <div style={styles.debugHud}>{debugInfo}</div>
 
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      {/* 3D MOUNT */}
+      <div ref={mountRef} style={styles.mount} />
 
-      {isLoading && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: '#fff',
-          fontSize: '32px',
-          background: 'rgba(0,0,0,0.95)',
-          padding: '50px 80px',
-          borderRadius: '16px',
-          zIndex: 20,
-          fontWeight: '800',
-          border: '4px solid #444',
-        }}>
-          Loading {cars.find(c => c.file === selectedCar)?.name}...
+      {/* Bottom Controls Helper */}
+      <div style={styles.helperBox}>
+        <div style={{ fontWeight: 800 }}>
+          🖱️ Left Click: Rotate • Right Click: Pan • Scroll: Zoom
         </div>
-      )}
-
-      {loadingError && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: '#f44',
-          fontSize: '28px',
-          background: 'rgba(0,0,0,0.95)',
-          padding: '60px',
-          borderRadius: '16px',
-          textAlign: 'center',
-          zIndex: 20,
-          fontWeight: '800',
-          border: '4px solid #f44',
-        }}>
-          ⚠️ {loadingError}
-        </div>
-      )}
-
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        color: '#fff',
-        fontSize: '22px',
-        background: 'rgba(0,0,0,0.9)',
-        padding: '20px 35px',
-        borderRadius: '14px',
-        zIndex: 10,
-        textAlign: 'center',
-      }}>
-        <div style={{ fontWeight: '800' }}>🖱️ Left Click: Rotate • Right Click: Pan • Scroll: Zoom</div>
-        <div style={{ fontSize: '20px', marginTop: '10px', color: '#FFD700', fontWeight: '800' }}>
+        <div style={{ fontSize: 18, marginTop: 8, color: "#FFD700", fontWeight: 800 }}>
           ⚡ Submit & Vote to Win! Fair & Square Competition!
         </div>
       </div>
@@ -1592,695 +1052,559 @@ function CarMod() {
   );
 }
 
-// ========================================
-// 🗳️ VOTING PANEL COMPONENT
-// ========================================
-function VotingPanel({ userId, onClose }) {
-  const [entries, setEntries] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [votesCompleted, setVotesCompleted] = useState(0);
-  const [loading, setLoading] = useState(true);
+/* ===========================================================
+   Reusable UI bits (styled inline to avoid external deps)
+=========================================================== */
 
-  useEffect(() => {
-    if (userId) {
-      loadVotingBatch();
-    }
-  }, [userId]);
-
-  const loadVotingBatch = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/voting/batch/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setEntries(data.entries);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error loading voting batch:', error);
-      alert('Failed to load entries for voting');
-    }
-  };
-
-  const handleVote = async (voteValue) => {
-    const currentEntry = entries[currentIndex];
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('${process.env.REACT_APP_API_URL}/api/vote', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          voterId: userId,
-          submissionId: currentEntry.id,
-          voteValue: voteValue
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setVotesCompleted(data.votesCompleted);
-        
-        if (data.qualified) {
-          alert('🎉 ' + data.message);
-          onClose();
-        } else if (currentIndex < entries.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          alert(`✅ Voting complete! You've voted on ${data.votesCompleted} entries.`);
-          onClose();
-        }
-      }
-    } catch (error) {
-      console.error('Error submitting vote:', error);
-      alert('Failed to submit vote');
-    }
-  };
-
-  if (!userId) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          padding: '40px',
-          borderRadius: '16px',
-          border: '3px solid #2196F3',
-          textAlign: 'center',
-        }}>
-          <h2 style={{ color: '#2196F3', fontSize: '32px', marginBottom: '20px' }}>Please Login First</h2>
-          <p style={{ color: '#fff', fontSize: '18px', marginBottom: '30px' }}>You need to be logged in to vote on entries.</p>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '15px 40px',
-              fontSize: '18px',
-              background: '#2196F3',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: '800',
-            }}
-          >
-            Close
-          </button>
-        </div>
+const ModalShell = ({ children, onClose, border = "#666", maxWidth = 1200 }) => (
+  <div style={styles.modalOverlay}>
+    <div style={styles.modal(border, maxWidth)}>
+      <div style={styles.modalCloseWrap}>
+        <button style={styles.modalCloseBtn} onClick={onClose}>
+          ×
+        </button>
       </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ color: '#fff', fontSize: '24px' }}>Loading entries...</div>
-      </div>
-    );
-  }
-
-  if (entries.length === 0) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          padding: '40px',
-          borderRadius: '16px',
-          border: '3px solid #2196F3',
-          textAlign: 'center',
-        }}>
-          <h2 style={{ color: '#2196F3', fontSize: '32px', marginBottom: '20px' }}>No More Entries</h2>
-          <p style={{ color: '#fff', fontSize: '18px', marginBottom: '30px' }}>
-            You've voted on all available entries! Check back later for more submissions.
-          </p>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '15px 40px',
-              fontSize: '18px',
-              background: '#2196F3',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: '800',
-            }}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentEntry = entries[currentIndex];
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.9)',
-      zIndex: 100,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      overflow: 'auto',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '800px',
-        background: '#1a1a1a',
-        border: '3px solid #2196F3',
-        borderRadius: '16px',
-        padding: '30px',
-      }}>
-        <div style={{ marginBottom: '30px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h2 style={{ color: '#2196F3', margin: 0, fontSize: '32px', fontWeight: '800' }}>
-              🗳️ Vote on Submissions
-            </h2>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#fff',
-                fontSize: '36px',
-                cursor: 'pointer',
-                lineHeight: 1,
-              }}
-            >
-              ×
-            </button>
-          </div>
-          
-          <div style={{ color: '#4CAF50', fontSize: '18px', fontWeight: '700', marginBottom: '10px' }}>
-            Progress: {votesCompleted} / 25 votes
-          </div>
-          
-          <div style={{
-            width: '100%',
-            height: '20px',
-            background: '#222',
-            borderRadius: '10px',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${(votesCompleted / 25) * 100}%`,
-              background: 'linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%)',
-              transition: 'width 0.3s ease',
-            }} />
-          </div>
-        </div>
-
-        <div style={{
-          background: '#222',
-          padding: '30px',
-          borderRadius: '12px',
-          border: '3px solid #333',
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px',
-          }}>
-            <h3 style={{ color: '#9C27B0', fontSize: '28px', fontWeight: '800', margin: 0 }}>
-              {currentEntry.anonymous_id}
-            </h3>
-            <span style={{ color: '#666', fontSize: '16px' }}>
-              Entry {currentIndex + 1} of {entries.length}
-            </span>
-          </div>
-
-          <div style={{
-            background: '#0a0a0a',
-            borderRadius: '15px',
-            height: '300px',
-            marginBottom: '30px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '72px',
-          }}>
-            🚗
-          </div>
-
-          <div style={{ marginBottom: '30px' }}>
-            <p style={{ fontSize: '18px', color: '#aaa', marginBottom: '10px' }}>
-              <strong style={{ color: '#fff' }}>Part:</strong> {currentEntry.part_name}
-            </p>
-            <p style={{ fontSize: '18px', color: '#aaa', marginBottom: '10px' }}>
-              <strong style={{ color: '#fff' }}>Type:</strong> {currentEntry.part_type}
-            </p>
-            <p style={{ fontSize: '18px', color: '#aaa', marginBottom: '10px' }}>
-              <strong style={{ color: '#fff' }}>Car:</strong> {currentEntry.car_model}
-            </p>
-            {currentEntry.description && (
-              <p style={{ fontSize: '18px', color: '#aaa', marginBottom: '10px' }}>
-                <strong style={{ color: '#fff' }}>Description:</strong> {currentEntry.description}
-              </p>
-            )}
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px',
-          }}>
-            <button
-              onClick={() => handleVote(0)}
-              style={{
-                padding: '20px',
-                fontSize: '20px',
-                fontWeight: '800',
-                background: '#f44336',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '15px',
-                cursor: 'pointer',
-              }}
-            >
-              👎 Not Good
-            </button>
-            <button
-              onClick={() => handleVote(1)}
-              style={{
-                padding: '20px',
-                fontSize: '20px',
-                fontWeight: '800',
-                background: '#4CAF50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '15px',
-                cursor: 'pointer',
-              }}
-            >
-              👍 Good
-            </button>
-          </div>
-        </div>
-
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          background: '#2d1810',
-          borderRadius: '10px',
-          border: '2px solid #4a2818',
-          textAlign: 'center',
-        }}>
-          <p style={{ color: '#FFA500', fontSize: '16px', margin: 0 }}>
-            ⚠️ Vote on 25 entries to qualify your submission for winning!
-          </p>
-        </div>
-      </div>
+      {children}
     </div>
-  );
-}
+  </div>
+);
 
-// ========================================
-// 📊 STATUS PANEL COMPONENT
-// ========================================
-function StatusPanel({ userId, onClose }) {
-  const [submission, setSubmission] = useState(null);
-  const [votesCompleted, setVotesCompleted] = useState(0);
-  const [loading, setLoading] = useState(true);
+const AdminStatCard = ({ color, bg, border, title, value }) => (
+  <div style={styles.adminCard(bg, border)}>
+    <h3 style={{ color, margin: "0 0 10px 0", fontSize: 18 }}>{title}</h3>
+    <p style={{ color: "#fff", fontSize: 30, fontWeight: 800, margin: 0 }}>{value}</p>
+  </div>
+);
 
-  useEffect(() => {
-    if (userId) {
-      loadSubmissionStatus();
-    }
-  }, [userId]);
+const Field = ({ label, type = "text", value, onChange, placeholder }) => (
+  <div style={{ marginBottom: 16 }}>
+    <label style={styles.label}>{label}</label>
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={styles.input}
+      required
+    />
+  </div>
+);
 
-  const loadSubmissionStatus = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/submission/status/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+const TextArea = ({ label, value, onChange, placeholder }) => (
+  <div style={{ marginBottom: 16 }}>
+    <label style={styles.label}>{label}</label>
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={styles.textarea}
+    />
+  </div>
+);
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setSubmission(data.submission);
-        setVotesCompleted(data.votesCompleted);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error loading submission status:', error);
-      setLoading(false);
-    }
-  };
+const SelectField = ({ label, value, onChange, options = [], placeholder }) => (
+  <div style={{ marginBottom: 16 }}>
+    <label style={styles.label}>{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={styles.select}
+      required
+    >
+      <option value="">{placeholder}</option>
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt}
+        </option>
+      ))}
+    </select>
+  </div>
+);
 
-  if (!userId) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          padding: '40px',
-          borderRadius: '16px',
-          border: '3px solid #9C27B0',
-          textAlign: 'center',
-        }}>
-          <h2 style={{ color: '#9C27B0', fontSize: '32px', marginBottom: '20px' }}>Please Login First</h2>
-          <p style={{ color: '#fff', fontSize: '18px', marginBottom: '30px' }}>You need to be logged in to view your status.</p>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '15px 40px',
-              fontSize: '18px',
-              background: '#9C27B0',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: '800',
-            }}
-          >
-            Close
-          </button>
-        </div>
+const FileField = ({ label, onChange, file }) => (
+  <div style={{ marginBottom: 16 }}>
+    <label style={styles.label}>{label}</label>
+    <input type="file" accept=".glb,.gltf" onChange={onChange} style={styles.input} required />
+    {file && (
+      <div style={{ color: "#4CAF50", fontSize: 14, marginTop: 8, fontWeight: 600 }}>
+        ✓ {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
       </div>
-    );
-  }
+    )}
+  </div>
+);
 
-  if (loading) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ color: '#fff', fontSize: '24px' }}>Loading your status...</div>
-      </div>
-    );
-  }
+/* ===========================================================
+   Styles (Cyber Garage look)
+=========================================================== */
 
-  if (!submission) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          padding: '40px',
-          borderRadius: '16px',
-          border: '3px solid #9C27B0',
-          textAlign: 'center',
-        }}>
-          <h2 style={{ color: '#9C27B0', fontSize: '32px', marginBottom: '20px' }}>No Submission Yet</h2>
-          <p style={{ color: '#fff', fontSize: '18px', marginBottom: '30px' }}>
-            You haven't submitted an entry yet. Click "Win Access!" to submit your custom car part!
-          </p>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '15px 40px',
-              fontSize: '18px',
-              background: '#9C27B0',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: '800',
-            }}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
+const styles = {
+  page: {
+    width: "100vw",
+    height: "100vh",
+    background: "#000",
+    position: "relative",
+    overflow: "hidden",
+    fontFamily: "'Orbitron', system-ui, sans-serif",
+  },
 
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.9)',
-      zIndex: 100,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      overflow: 'auto',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '700px',
-        background: '#1a1a1a',
-        border: '3px solid #9C27B0',
-        borderRadius: '16px',
-        padding: '30px',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <h2 style={{ color: '#9C27B0', margin: 0, fontSize: '32px', fontWeight: '800' }}>
-            📊 Your Submission Status
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#fff',
-              fontSize: '36px',
-              cursor: 'pointer',
-              lineHeight: 1,
-            }}
-          >
-            ×
-          </button>
-        </div>
+  cyberGradient: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(1200px 800px at 70% 120%, rgba(255,127,63,0.12), transparent 60%)," +
+      "radial-gradient(1200px 800px at 30% -20%, rgba(102,126,234,0.14), transparent 60%)," +
+      "linear-gradient(180deg, #09090c 0%, #0b0b10 60%, #07070a 100%)",
+    zIndex: 0,
+  },
+  scanlines: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "repeating-linear-gradient( to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.025) 1px, transparent 2px )",
+    pointerEvents: "none",
+    zIndex: 1,
+  },
+  vignette: {
+    position: "absolute",
+    inset: 0,
+    boxShadow: "inset 0 0 220px rgba(0,0,0,0.8)",
+    zIndex: 2,
+    pointerEvents: "none",
+  },
 
-        <div style={{
-          background: '#222',
-          padding: '25px',
-          borderRadius: '12px',
-          border: '3px solid #333',
-          marginBottom: '25px',
-        }}>
-          <div style={{ fontSize: '24px', color: '#9C27B0', fontWeight: '800', marginBottom: '15px' }}>
-            {submission.anonymous_id}
-          </div>
-          <div style={{ fontSize: '18px', color: '#fff', marginBottom: '10px' }}>
-            <strong>Part Name:</strong> {submission.part_name}
-          </div>
-          <div style={{ fontSize: '18px', color: '#fff', marginBottom: '10px' }}>
-            <strong>Type:</strong> {submission.part_type}
-          </div>
-          <div style={{ fontSize: '18px', color: '#fff', marginBottom: '10px' }}>
-            <strong>Car Model:</strong> {submission.car_model}
-          </div>
-        </div>
+  mount: { width: "100%", height: "100%", position: "absolute", inset: 0, zIndex: 3 },
 
-        {submission.status === 'PENDING' ? (
-          <div style={{
-            background: '#2d1810',
-            padding: '25px',
-            borderRadius: '12px',
-            border: '3px solid #4a2818',
-          }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '10px 20px',
-              background: '#FF9800',
-              color: '#000',
-              fontWeight: '800',
-              borderRadius: '50px',
-              marginBottom: '20px',
-              fontSize: '18px',
-            }}>
-              ⏳ PENDING QUALIFICATION
-            </div>
-            
-            <p style={{ color: '#FFA500', fontSize: '18px', fontWeight: '700', marginBottom: '10px' }}>
-              Your entry is NOT eligible to win yet!
-            </p>
-            <p style={{ color: '#fff', fontSize: '20px', fontWeight: '800', marginBottom: '20px' }}>
-              Vote on 25 entries to qualify for winning
-            </p>
+  // Top HUD
+  topBar: {
+    position: "absolute",
+    top: 18,
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 5,
+    display: "flex",
+    gap: 14,
+    flexWrap: "wrap",
+    justifyContent: "center",
+    maxWidth: "96vw",
+    background: "rgba(10,10,16,0.65)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 8px 26px rgba(0,0,0,0.45)",
+    padding: "12px 16px",
+    borderRadius: 16,
+    backdropFilter: "blur(10px)",
+  },
+  hudBtn: {
+    padding: "14px 22px",
+    fontSize: 16,
+    borderRadius: 12,
+    background: "linear-gradient(135deg,#181824,#1d1d2e)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.1)",
+    cursor: "pointer",
+    fontWeight: 800,
+    transition: "transform .2s ease, box-shadow .2s ease",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
+  },
+  hudBtnDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  hudBtnActiveGreen: {
+    borderColor: "#2dde6e",
+    boxShadow: "0 0 20px rgba(45,222,110,0.35)",
+  },
+  hudBtnActiveBlue: {
+    borderColor: "#00b3ff",
+    boxShadow: "0 0 20px rgba(0,179,255,0.35)",
+  },
+  hudBtnActivePurple: {
+    borderColor: "#9C27B0",
+    boxShadow: "0 0 20px rgba(156,39,176,0.35)",
+  },
+  hudBtnActiveRed: {
+    borderColor: "#f44336",
+    boxShadow: "0 0 20px rgba(244,67,54,0.35)",
+  },
+  hudSelect: {
+    padding: "14px 22px",
+    fontSize: 16,
+    borderRadius: 12,
+    background: "linear-gradient(135deg,#171722,#1c1c2b)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  ctaBtn: {
+    background: "linear-gradient(135deg,#FF9800,#F57C00)",
+    border: "1px solid #FFB74D",
+    boxShadow: "0 6px 22px rgba(255,152,0,0.45)",
+  },
 
-            <div style={{
-              width: '100%',
-              height: '20px',
-              background: '#222',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              marginBottom: '10px',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${(votesCompleted / 25) * 100}%`,
-                background: 'linear-gradient(90deg, #FF9800 0%, #F57C00 100%)',
-                transition: 'width 0.3s ease',
-              }} />
-            </div>
-            
-            <div style={{ color: '#FF9800', fontSize: '18px', fontWeight: '700', marginBottom: '30px' }}>
-              {votesCompleted} / 25 votes completed
-            </div>
+  // Mod panel + resizer
+  dragHandle: (panelWidth) => ({
+    position: "absolute",
+    top: 0,
+    right: panelWidth,
+    bottom: 0,
+    width: 10,
+    background: "transparent",
+    cursor: "ew-resize",
+    zIndex: 10,
+  }),
+  dragGrip: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%,-50%)",
+    width: 4,
+    height: 56,
+    background: "#6868a0",
+    borderRadius: 3,
+    boxShadow: "0 0 10px rgba(104,104,160,0.45)",
+  },
+  modPanel: (panelWidth) => ({
+    position: "absolute",
+    top: 86,
+    right: 0,
+    bottom: 0,
+    width: `${panelWidth}px`,
+    background: "rgba(10,10,16,0.92)",
+    borderLeft: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 0 50px rgba(0,0,0,0.6)",
+    borderRadius: "16px 0 0 0",
+    padding: 24,
+    zIndex: 8,
+    display: "flex",
+    flexDirection: "column",
+    backdropFilter: "blur(8px)",
+  }),
+  panelTitle: {
+    color: "#fff",
+    margin: "0 0 16px 0",
+    fontSize: 34,
+    fontWeight: 900,
+    background: "linear-gradient(135deg,#667eea,#a770ef)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+  },
+  searchInput: {
+    width: "100%",
+    padding: 14,
+    marginBottom: 14,
+    borderRadius: 12,
+    background: "#13131c",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 18,
+    fontWeight: 700,
+  },
+  toolRow: {
+    display: "flex",
+    gap: 12,
+    marginBottom: 14,
+    flexWrap: "wrap",
+  },
+  toolBtnGreen: {
+    padding: "12px 18px",
+    fontSize: 16,
+    borderRadius: 10,
+    background: "linear-gradient(135deg,#2dde6e,#17a84d)",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  toolBtnAmber: {
+    padding: "12px 18px",
+    fontSize: 16,
+    borderRadius: 10,
+    background: "linear-gradient(135deg,#ffa739,#ff8a00)",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  toolBtnPurple: {
+    padding: "12px 18px",
+    fontSize: 16,
+    borderRadius: 10,
+    background: "linear-gradient(135deg,#9C27B0,#7b1fa2)",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  disabled: { opacity: 0.45, cursor: "not-allowed" },
 
-            <button
-              onClick={() => {
-                onClose();
-                // This will be handled by parent component
-                window.location.hash = '#vote';
-              }}
-              style={{
-                width: '100%',
-                padding: '18px',
-                fontSize: '20px',
-                fontWeight: '800',
-                background: 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              🗳️ Start Voting Now →
-            </button>
-          </div>
-        ) : (
-          <div style={{
-            background: '#1a2d1e',
-            padding: '25px',
-            borderRadius: '12px',
-            border: '3px solid #2d4a38',
-          }}>
-            <div style={{
-              display: 'inline-block',
-              padding: '10px 20px',
-              background: '#4CAF50',
-              color: '#fff',
-              fontWeight: '800',
-              borderRadius: '50px',
-              marginBottom: '20px',
-              fontSize: '18px',
-            }}>
-              ✅ QUALIFIED
-            </div>
-            
-            <p style={{ color: '#4CAF50', fontSize: '20px', fontWeight: '700', marginBottom: '20px' }}>
-              Your entry is eligible to win! 🏆
-            </p>
+  colorBlock: {
+    padding: 14,
+    background: "rgba(25,60,35,0.8)",
+    borderRadius: 12,
+    marginBottom: 16,
+    border: "1px solid rgba(45,122,79,0.6)",
+  },
+  colorLabel: { color: "#fff", fontSize: 16, display: "block", marginBottom: 10, fontWeight: 800 },
+  colorPicker: {
+    width: "100%",
+    height: 52,
+    border: "1px solid #2d7a4f",
+    borderRadius: 10,
+    cursor: "pointer",
+    background: "#0f1a14",
+  },
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
-              gap: '15px',
-              fontSize: '18px',
-              color: '#fff',
-            }}>
-              <div>
-                <div style={{ color: '#aaa', fontSize: '14px' }}>Times Shown</div>
-                <div style={{ fontSize: '24px', fontWeight: '800' }}>👀 {submission.times_shown || 0}</div>
-              </div>
-              <div>
-                <div style={{ color: '#aaa', fontSize: '14px' }}>Total Votes</div>
-                <div style={{ fontSize: '24px', fontWeight: '800' }}>🗳️ {submission.total_votes || 0}</div>
-              </div>
-              <div>
-                <div style={{ color: '#aaa', fontSize: '14px' }}>Approval</div>
-                <div style={{ fontSize: '24px', fontWeight: '800', color: '#4CAF50' }}>
-                  📊 {submission.total_votes > 0 ? Math.round((submission.thumbs_up / submission.total_votes) * 100) : 0}%
-                </div>
-              </div>
-            </div>
+  partsMeta: { fontSize: 14, color: "#aaa", marginBottom: 10, fontWeight: 700 },
+  partsList: {
+    flex: 1,
+    overflowY: "auto",
+    overflowX: "hidden",
+    paddingRight: 4,
+  },
+  partCard: (selected) => ({
+    background: selected ? "rgba(20,37,66,0.7)" : "rgba(20,20,28,0.7)",
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    border: selected ? "2px solid #2dde6e" : "1px solid rgba(255,255,255,0.08)",
+  }),
+  partHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  partCheckbox: {
+    width: 22,
+    height: 22,
+    accentColor: "#2dde6e",
+    cursor: "pointer",
+  },
+  partIconBtnBlue: {
+    padding: "10px 14px",
+    fontSize: 18,
+    borderRadius: 10,
+    background: "#2196F3",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+  },
+  partIconBtnGreen: {
+    padding: "10px 14px",
+    fontSize: 18,
+    borderRadius: 10,
+    background: "#2dde6e",
+    color: "#000",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  partIconBtnRed: {
+    padding: "10px 14px",
+    fontSize: 18,
+    borderRadius: 10,
+    background: "#f44336",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  partInfo: {
+    fontSize: 14,
+    color: "#d8d8d8",
+    marginBottom: 10,
+    fontFamily: "monospace",
+    fontWeight: 700,
+    lineHeight: 1.7,
+  },
+  partFooterRow: { display: "flex", gap: 10, alignItems: "center" },
+  partSelect: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+    borderRadius: 10,
+    background: "#151522",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  partColor: {
+    width: 64,
+    height: 52,
+    border: "1px solid rgba(255,255,255,0.2)",
+    borderRadius: 10,
+    cursor: "pointer",
+    background: "#0f0f16",
+  },
 
-            <div style={{
-              marginTop: '20px',
-              padding: '15px',
-              background: '#0f2415',
-              borderRadius: '8px',
-              textAlign: 'center',
-            }}>
-              <p style={{ color: '#4CAF50', fontSize: '16px', margin: 0 }}>
-                ✅ Keep voting to help other creators qualify too!
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+  // Modal
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.88)",
+    backdropFilter: "blur(10px)",
+    zIndex: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modal: (borderColor, maxWidth) => ({
+    width: "100%",
+    maxWidth,
+    maxHeight: "90vh",
+    overflowY: "auto",
+    background: "rgba(12,12,20,0.95)",
+    border: `2px solid ${borderColor}`,
+    borderRadius: 18,
+    padding: 24,
+    boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+  }),
+  modalCloseWrap: { display: "flex", justifyContent: "flex-end" },
+  modalCloseBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#fff",
+    fontSize: 36,
+    cursor: "pointer",
+    lineHeight: 1,
+  },
+  modalTitle: {
+    fontSize: 28,
+    fontWeight: 900,
+    margin: "0 0 16px 0",
+  },
+  modalBodyCenter: { color: "#fff", fontSize: 16, textAlign: "center", padding: 24 },
+
+  adminGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+    gap: 16,
+    marginBottom: 24,
+  },
+  adminCard: (bg, border) => ({
+    background: bg,
+    padding: 16,
+    borderRadius: 12,
+    border: `2px solid ${border}`,
+  }),
+  adminTable: {
+    background: "#161620",
+    padding: 18,
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+
+  // Upload
+  noticeCard: {
+    background: "rgba(20,60,32,0.85)",
+    border: "1px solid rgba(45,122,79,0.6)",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  noticeWarning: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#ffd3d3",
+    background: "#4a1818",
+    padding: "6px 10px",
+    borderRadius: 8,
+    display: "inline-block",
+  },
+  label: {
+    color: "#eaeaea",
+    fontSize: 14,
+    display: "block",
+    marginBottom: 8,
+    fontWeight: 700,
+  },
+  input: {
+    width: "100%",
+    padding: 13,
+    borderRadius: 10,
+    background: "#141420",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 15,
+  },
+  textarea: {
+    width: "100%",
+    padding: 13,
+    borderRadius: 10,
+    background: "#141420",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 15,
+    minHeight: 90,
+    resize: "vertical",
+  },
+  select: {
+    width: "100%",
+    padding: 13,
+    borderRadius: 10,
+    background: "#141420",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 15,
+    cursor: "pointer",
+  },
+  termsBox: {
+    background: "#2c1810",
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+    border: "1px solid #4a2818",
+  },
+  termsLabel: {
+    display: "flex",
+    alignItems: "flex-start",
+    color: "#fff",
+    fontSize: 14,
+    gap: 10,
+    cursor: "pointer",
+  },
+  termsCheckbox: { width: 18, height: 18, cursor: "pointer", marginTop: 2 },
+  submitBtn: {
+    width: "100%",
+    padding: 16,
+    borderRadius: 12,
+    background: "linear-gradient(135deg,#FF9800,#F57C00)",
+    color: "#fff",
+    border: "none",
+    fontSize: 18,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
+  // Debug HUD
+  debugHud: {
+    position: "absolute",
+    top: 86,
+    left: 18,
+    color: "#a2ff9a",
+    fontSize: 16,
+    background: "rgba(4,8,6,0.9)",
+    padding: 12,
+    borderRadius: 10,
+    fontFamily: "monospace",
+    zIndex: 9,
+    fontWeight: 800,
+    border: "1px solid rgba(45,122,79,0.5)",
+  },
+
+  // Bottom help
+  helperBox: {
+    position: "absolute",
+    bottom: 16,
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "#fff",
+    fontSize: 18,
+    background: "rgba(10,10,16,0.8)",
+    padding: "14px 22px",
+    borderRadius: 12,
+    zIndex: 6,
+    textAlign: "center",
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+  },
+};
 
 export default CarMod;
