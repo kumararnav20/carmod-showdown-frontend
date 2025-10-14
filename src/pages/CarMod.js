@@ -9,6 +9,9 @@ import futuristicTheme from "../styles/futuristicTheme";
 import VotingPanel from "../VotingPanel";
 import StatusPanel from "../StatusPanel";
 
+// ADD THESE
+import AIChatBox from "../components/AIChatBox";
+
 /**
  * CarMod — "Cyber Garage" Edition
  * - Keeps your original logic for scene, loading, parts, upload, admin, gallery
@@ -59,7 +62,166 @@ function CarMod() {
     agreedToTerms: false,
   });
 
+  // AI busy flag
+  const [aiBusy, setAIBusy] = useState(false);
+
+  // give AI a list of known parts (you already compute carParts[])
+  const getCarContext = () => ({
+    knownParts: carParts.map(p => p.name.toLowerCase()),
+    themes: ["neon_night", "luxury", "offroad", "street_racer"]
+  });
+  
+  // Apply Level-1 AI actions to current model
+  const applyAIActions = async (actions = []) => {
+   if (!modelRef.current) return;
+   setAIBusy(true);
+
+   const aliasMap = {
+     body: ["body","car_body","paint","mesh_body"],
+     roof: ["roof"],
+     window: ["glass","window"],
+     spoiler: ["spoiler","wing"],
+     grille: ["grille"],
+     light_head: ["headlight","front_light","frontlight"],
+      light_tail: ["taillight","rear_light","rearlight"],
+     mirror: ["mirror"],
+     hood: ["hood","bonnet"],
+      trunk: ["trunk","boot"],
+     diffuser: ["diffuser"],
+     skirt: ["skirt","side_skirt","sideskirt"],
+     rim_sport: ["rim_sport","sport_rim","wheel_sport"],
+     rim_offroad: ["rim_offroad","offroad_rim","wheel_offroad"],
+     underglow: ["underglow"]
+   };
+
+    const findTargets = (target) => {
+      const t = (target||"").toLowerCase();
+     const candidates = aliasMap[t] || [target];
+      const found = [];
+     modelRef.current.traverse((child) => {
+       if (child.isMesh) {
+         const nm = (child.name||"").toLowerCase();
+         if (candidates.some(c => nm.includes(c.toLowerCase()))) found.push(child);
+       }
+     });
+     return found;
+   };
+
+   const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+   try {
+     for (const action of actions) {
+       const type = action.type;
+
+       if (type === "MATERIAL_EDIT") {
+         const parts = findTargets(action.target);
+         for (const mesh of parts) {
+           if (!mesh.material) continue;
+           mesh.material = mesh.material.clone();
+           const p = action.parameters || {};
+           if (p.color) mesh.material.color.set(p.color);
+           if (p.emissive && mesh.material.emissive) mesh.material.emissive.set(p.emissive);
+           if (typeof p.metalness === "number") mesh.material.metalness = clamp01(p.metalness);
+           if (typeof p.roughness === "number") mesh.material.roughness = clamp01(p.roughness);
+           mesh.material.needsUpdate = true;
+         }
+       }
+
+       if (type === "TOGGLE_PART") {
+         const parts = findTargets(action.target);
+         for (const mesh of parts) mesh.visible = !!action.visible;
+         // reflect in your UI list:
+         setCarParts(prev => prev.map(p => {
+           if (p.name.toLowerCase().includes((action.target||"").toLowerCase())) {
+             return { ...p, visible: !!action.visible };
+           }
+           return p;
+         }));
+       }
+  
+       if (type === "ADD_UNDERGLOW") {
+         const p = action.parameters || {};
+         const existing = [];
+          modelRef.current.traverse(c => { if (c.userData?.tag==="UNDERGLOW") existing.push(c) });
+          if (existing.length) {
+           existing.forEach(m=>{
+             if (m.material.emissive) m.material.emissive.set(p.color || "#00ffff");
+             m.material.emissiveIntensity = p.intensity ?? 2.2;
+             m.material.needsUpdate = true;
+           });
+         } else {
+           const plane = new THREE.Mesh(
+             new THREE.CircleGeometry(2.8, 48),
+             new THREE.MeshStandardMaterial({
+               color: "#000000",
+               emissive: p.color || "#00ffff",
+               emissiveIntensity: p.intensity ?? 2.2,
+               transparent: true,
+               opacity: 0.85
+             })
+            );
+            plane.rotation.x = -Math.PI/2;
+            plane.position.y = 0.01;
+            plane.userData.tag = "UNDERGLOW";
+            modelRef.current.add(plane);
+          }
+        }
+
+        if (type === "SET_SUSPENSION") {
+          const lift = action?.parameters?.lift ?? 0.1; // meters
+          modelRef.current.position.y += lift;
+        }
+
+        if (type === "SWAP_PRESET") {
+          const preset = action?.parameters?.preset;
+          if (preset === "sport_rims") {
+            findTargets("rim_offroad").forEach(m=>m.visible=false);
+            findTargets("rim_sport").forEach(m=>m.visible=true);
+          } else if (preset === "offroad_rims") {
+            findTargets("rim_sport").forEach(m=>m.visible=false);
+            findTargets("rim_offroad").forEach(m=>m.visible=true);
+          } else if (preset === "luxury_theme") {
+            const body = findTargets("body");
+            body.forEach(mesh=>{
+              if (!mesh.material) return;
+             mesh.material = mesh.material.clone();
+              mesh.material.color.set("#202020");
+              mesh.material.metalness = 0.8;
+              mesh.material.roughness = 0.25;
+              mesh.material.needsUpdate = true;
+            });
+            await applyAIActions([{ type:"ADD_UNDERGLOW", parameters:{ color:"#ffd6a0", intensity:1.6 }}]);
+          }
+        }
+     }
+   } finally {
+      setAIBusy(false);
+   }
+  };
+
+
+
   const modelRef = useRef(null);
+    // ✅ Export the currently edited 3D model
+  const exportEditedGLB = async () => {
+    if (!modelRef.current) return;
+    const { GLTFExporter } = await import("three/examples/jsm/exporters/GLTFExporter.js");
+    const exporter = new GLTFExporter();
+
+    exporter.parse(
+      modelRef.current,
+      (bin) => {
+        const blob = new Blob([bin], { type: "model/gltf-binary" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `carmod_edited_${Date.now()}.glb`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      { binary: true }
+    );
+  };
 
   // ----------------- data: cars & part types -----------------
   const cars = [
@@ -683,6 +845,35 @@ function CarMod() {
             </option>
           ))}
         </select>
+        <input
+          type="file"
+          accept=".glb,.gltf"
+          onChange={(e)=>{
+            const f = e.target.files?.[0];
+            if (!f) return;
+            if (f.size > 200*1024*1024) return alert("Max 200MB");
+            const url = URL.createObjectURL(f); // blob: URL
+            setSelectedCar(url); // your GLTFLoader can load blob URLs
+          }}
+          style={{ 
+            padding: '12px 16px',
+            borderRadius: 10,
+            background: '#222',
+            color: '#fff',
+            border: '1px solid #555',
+            cursor: 'pointer',
+            fontWeight: 800
+          }}
+        />
+
+         {/* ✅ Export Edited Car */}
+         <button
+           style={{ ...styles.hudBtn, background: "linear-gradient(135deg,#2dde6e,#17a84d)" }}
+           onClick={exportEditedGLB}
+         >
+          💾 Export .GLB
+         </button>
+
 
         <button
           onClick={() => setShowModPanel((s) => !s)}
@@ -1048,6 +1239,12 @@ function CarMod() {
           ⚡ Submit & Vote to Win! Fair & Square Competition!
         </div>
       </div>
+      {/* ✅ AI Chatbox — Level 1 Mechanic */}
+      <AIChatBox
+        onActions={applyAIActions}
+        getCarContext={getCarContext}
+        busy={aiBusy}
+      />
     </div>
   );
 }
