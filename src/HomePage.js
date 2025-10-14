@@ -88,14 +88,14 @@ function HomePage() {
         <div style={{ display: "flex", gap: "20px" }}>
           {isLoggedIn ? (
             <>
-              <NavBtn label="Vote" color="#2196F3" onClick={() => setShowVotingPanel(true)} emoji="🗳️" />
+              <NavBtn label="Vote" color="#00FFFF" onClick={() => setShowVotingPanel(true)} emoji="🗳️" />
               <NavBtn label="Status" color="#9C27B0" onClick={() => setShowStatusPanel(true)} emoji="📊" />
-              <NavBtn label="Dashboard" color="#ffffff33" onClick={() => navigate("/my-submissions")} emoji="🧭" />
-              <NavBtn label="Logout" color="#ffffff22" onClick={handleLogout} emoji="🚪" />
+              <NavBtn label="Dashboard" color="#444" onClick={() => navigate("/my-submissions")} emoji="🧭" />
+              <NavBtn label="Logout" color="#222" onClick={handleLogout} emoji="🚪" />
             </>
           ) : (
             <>
-              <NavBtn label="Login" color="#ffffff22" onClick={() => navigate("/login")} emoji="🔐" />
+              <NavBtn label="Login" color="#444" onClick={() => navigate("/login")} emoji="🔐" />
               <NavBtn label="Sign Up" color="#FF9800" gradient onClick={() => navigate("/register")} emoji="✨" />
             </>
           )}
@@ -123,8 +123,8 @@ function HomePage() {
         <div style={styles.heroBtns}>
           {isLoggedIn ? (
             <>
-              <MainBtn color="#667eea" text="🎨 Start Creating" onClick={() => navigate("/carmod")} />
-              <MainBtn color="#2196F3" text="🗳️ Vote Now" onClick={() => setShowVotingPanel(true)} />
+              <MainBtn color="#00FFFF" text="🎨 Start Creating" onClick={() => navigate("/carmod")} />
+              <MainBtn color="#4facfe" text="🗳️ Vote Now" onClick={() => setShowVotingPanel(true)} />
               <MainBtn color="#9C27B0" text="🎨 Browse Gallery" onClick={() => navigate("/gallery")} />
             </>
           ) : (
@@ -185,7 +185,7 @@ const styles = {
     left: 0,
     width: "100%",
     height: "120%",
-    backgroundImage: "url('/nfs_bg.png')", // ⚡ Change your image name here
+    backgroundImage: "url('/nfs_bg.png')",
     backgroundSize: "cover",
     backgroundPosition: "center",
     zIndex: -2,
@@ -299,19 +299,28 @@ const NavBtn = ({ label, color, onClick, emoji, gradient }) => (
   <button
     onClick={onClick}
     style={{
-      padding: "12px 24px",
-      borderRadius: "40px",
-      fontSize: "17px",
-      background: gradient ? `linear-gradient(135deg,${color},${color}aa)` : color,
-      border: "none",
+      padding: "12px 26px",
+      borderRadius: "10px",
+      fontSize: "16px",
+      background: gradient
+        ? `linear-gradient(135deg,${color},${color}99)`
+        : `linear-gradient(135deg,#111,#222)`,
+      border: `1px solid ${color}`,
       color: "#fff",
       fontWeight: "700",
       cursor: "pointer",
-      boxShadow: "0 3px 10px rgba(255,255,255,0.2)",
-      transition: "0.3s",
+      textShadow: "0 0 6px rgba(255,255,255,0.3)",
+      boxShadow: `0 0 12px ${color}44`,
+      transition: "all 0.25s ease",
     }}
-    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-2px)";
+      e.currentTarget.style.boxShadow = `0 0 18px ${color}aa`;
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.boxShadow = `0 0 12px ${color}44`;
+    }}
   >
     {emoji} {label}
   </button>
@@ -322,17 +331,26 @@ const MainBtn = ({ color, text, onClick }) => (
     onClick={onClick}
     style={{
       padding: "22px 50px",
-      fontSize: "26px",
-      borderRadius: "60px",
-      background: `linear-gradient(135deg,${color},${color}aa)`,
-      border: "none",
+      fontSize: "24px",
+      borderRadius: "10px",
+      background: `linear-gradient(135deg,#0a0a0a 0%, ${color} 100%)`,
+      border: `1px solid ${color}`,
       color: "#fff",
       fontWeight: "900",
       cursor: "pointer",
-      transition: "0.3s",
+      letterSpacing: "1px",
+      textTransform: "uppercase",
+      boxShadow: `0 0 20px ${color}44`,
+      transition: "all 0.3s ease",
     }}
-    onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-3px)";
+      e.currentTarget.style.boxShadow = `0 0 25px ${color}aa`;
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.boxShadow = `0 0 20px ${color}44`;
+    }}
   >
     {text}
   </button>
