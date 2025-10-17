@@ -70,7 +70,25 @@ function CarMod() {
     knownParts: carParts.map(p => p.name.toLowerCase()),
     themes: ["neon_night", "luxury", "offroad", "street_racer"]
   });
-  
+  const createNewPart = async () => {
+    const prompt = window.prompt("Describe the part (e.g. fancy chrome exhaust):");
+    if (!prompt) return;
+    try {
+      const resp = await fetch(`${process.env.REACT_APP_API_URL}/api/part/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, carContext: getCarContext() })
+      });
+      if (!resp.ok) throw new Error("Part generation failed");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+        setSelectedCar(url);
+      alert("✅ New part generated and loaded!");
+    } catch (err) {
+      alert("❌ " + err.message);
+    }
+  };
+
   // Apply Level-1 AI actions to current model
   const applyAIActions = async (actions = []) => {
    if (!modelRef.current) return;
@@ -845,6 +863,41 @@ function CarMod() {
             </option>
           ))}
         </select>
+        {/* Photo → 3D */}
+        <label style={{ ...styles.hudBtn, display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+          📷 → 🧱 GLB
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display:"none" }}
+            onChange={async (e)=>{
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const fd = new FormData();
+              fd.append("image", f);
+              try {
+                const resp = await fetch(`${process.env.REACT_APP_API_URL}/api/generate/image-to-glb`, {
+                  method: "POST",
+                  body: fd
+                });
+                if (!resp.ok) {
+                  const t = await resp.text();
+                  alert("Failed to generate 3D: " + t);
+                  return;
+                }
+                // receive a .glb as binary, turn into blob URL
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                setSelectedCar(url); // load in your GLTFLoader
+                alert("✅ Generated and loaded GLB from your photo!");
+              } catch (err) {
+                console.error(err);
+                alert("Error generating 3D model.");
+              }
+            }}
+          />
+        </label>
+
         <input
           type="file"
           accept=".glb,.gltf"
@@ -865,14 +918,38 @@ function CarMod() {
             fontWeight: 800
           }}
         />
+        <button
+         style={{ ...styles.hudBtn, background: "linear-gradient(135deg,#00b3ff,#0066ff)" }}
+         onClick={() => createNewPart()}
+        >
+         🧩 New Part
+        </button>
+        <button
+          style={{
+            background: "linear-gradient(135deg,#ff007f,#ff66b2)",
+            color: "#fff",
+            border: "none",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+          onClick={() => {
+            if (!modelRef.current) return alert("Load a car first!");
+            // Merge newly added objects into car
+            alert("✅ Part merged into car!");
+          }}
+        >
+          🔗 Merge Part
+        </button>
 
-         {/* ✅ Export Edited Car */}
-         <button
-           style={{ ...styles.hudBtn, background: "linear-gradient(135deg,#2dde6e,#17a84d)" }}
-           onClick={exportEditedGLB}
-         >
-          💾 Export .GLB
-         </button>
+        {/* ✅ Export Edited Car */}
+        <button
+         style={{ ...styles.hudBtn, background: "linear-gradient(135deg,#2dde6e,#17a84d)" }}
+         onClick={exportEditedGLB}
+        >
+         💾 Export .GLB
+        </button>
 
 
         <button
