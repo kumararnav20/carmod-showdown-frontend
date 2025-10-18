@@ -8,7 +8,6 @@ const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
   const chatEndRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
-    // 👇 called when "New Part" button is clicked
     requestNewPart() {
       setPendingPartRequest(true);
       setHistory((h) => [
@@ -36,12 +35,13 @@ const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
       if (pendingPartRequest) {
         endpoint = `${process.env.REACT_APP_API_URL}/api/part/create`;
       } else {
-        // Normal interpretation route
         const isPartCreation = /(add|create|build|make).*(part|exhaust|spoiler|wheel|door|hood|bumper|roof|mirror)/i.test(prompt);
         endpoint = isPartCreation
           ? `${process.env.REACT_APP_API_URL}/api/part/create`
           : `${process.env.REACT_APP_API_URL}/api/ai/interpret`;
       }
+
+      console.log("🛰️ Sending to:", endpoint);
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -49,19 +49,28 @@ const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
         body: JSON.stringify({ prompt, carContext: getCarContext?.() }),
       });
 
-      if (!res.ok) throw new Error("Server error");
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
 
+      // 🔹 Handle GLB generation
       if (endpoint.includes("/part/create")) {
-        // 🧱 Expect GLB blob
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        setHistory((h) => [
-          ...h,
-          { role: "assistant", content: "✅ New 3D part generated and loaded into your car!" },
-        ]);
-        onActions?.([{ type: "LOAD_NEW_PART", parameters: { url } }]);
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("model/gltf-binary")) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          setHistory((h) => [
+            ...h,
+            { role: "assistant", content: "✅ New 3D part generated and loaded into your car!" },
+          ]);
+          onActions?.([{ type: "LOAD_NEW_PART", parameters: { url } }]);
+        } else {
+          const err = await res.text();
+          throw new Error(err);
+        }
         setPendingPartRequest(false);
-      } else {
+      }
+
+      // 🔹 Handle normal AI edit response
+      else {
         const data = await res.json();
         if (data?.success && Array.isArray(data.actions)) {
           setHistory((h) => [
@@ -77,7 +86,7 @@ const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error("❌ AIChatBox Error:", err);
       setHistory((h) => [
         ...h,
         { role: "assistant", content: "❌ AI connection error." },
@@ -135,7 +144,6 @@ const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
 
 export default AIChatBox;
 
-/* ✨ Styles */
 const neon = (color) => ({
   textShadow: `0 0 6px ${color}, 0 0 12px ${color}, 0 0 24px ${color}`,
 });
