@@ -3,44 +3,80 @@ import React, { useState, useRef, useEffect } from "react";
 export default function AIChatBox({ onActions, getCarContext, busy }) {
   const [prompt, setPrompt] = useState("");
   const [history, setHistory] = useState([]);
+  const [aiTyping, setAiTyping] = useState(false);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [history]);
+  }, [history, aiTyping]);
 
   const sendPrompt = async (e) => {
     e?.preventDefault?.();
     if (!prompt.trim() || busy) return;
-    const you = { role: "user", content: prompt };
-    setHistory((h) => [...h, you]);
+
+    const userMsg = { role: "user", content: prompt };
+    setHistory((h) => [...h, userMsg]);
+    setAiTyping(true);
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/ai/interpret`, {
+      // 🔍 Detect part creation (keywords like "add exhaust" or "create spoiler")
+      const isPartCreation = /(add|create|build|make).*(part|exhaust|spoiler|wheel|door|hood|bumper|roof|mirror)/i.test(prompt);
+
+      const endpoint = isPartCreation
+        ? `${process.env.REACT_APP_API_URL}/api/part/create`
+        : `${process.env.REACT_APP_API_URL}/api/ai/interpret`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, carContext: getCarContext?.() }),
       });
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.actions)) {
+
+      if (!res.ok) throw new Error("Server error");
+
+      if (isPartCreation) {
+        // 🧱 Expect GLB blob for new 3D part
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
         setHistory((h) => [
           ...h,
-          { role: "assistant", content: `✅ Applied ${data.actions.length} change(s)!` },
+          { role: "assistant", content: "✅ New 3D part generated and attached to your car!" },
         ]);
-        onActions?.(data.actions);
+        onActions?.([{ type: "LOAD_NEW_PART", parameters: { url } }]);
       } else {
-        setHistory((h) => [...h, { role: "assistant", content: "⚠️ I couldn’t understand that." }]);
+        // ⚙️ Interpret modification commands
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.actions)) {
+          setHistory((h) => [
+            ...h,
+            { role: "assistant", content: `✅ Applied ${data.actions.length} change(s)!` },
+          ]);
+          onActions?.(data.actions);
+        } else {
+          setHistory((h) => [
+            ...h,
+            { role: "assistant", content: "⚠️ I couldn’t understand that." },
+          ]);
+        }
       }
     } catch (err) {
       console.error(err);
-      setHistory((h) => [...h, { role: "assistant", content: "❌ AI connection error." }]);
+      setHistory((h) => [
+        ...h,
+        { role: "assistant", content: "❌ AI connection error." },
+      ]);
     } finally {
       setPrompt("");
+      setAiTyping(false);
     }
   };
 
   return (
-    <div style={styles.wrap} onMouseDown={(e)=>e.stopPropagation()} onWheel={(e)=>e.stopPropagation()}>
+    <div
+      style={styles.wrap}
+      onMouseDown={(e) => e.stopPropagation()}
+      onWheel={(e) => e.stopPropagation()}
+    >
       <div style={styles.header}>
         <span>🤖 AI Mechanic</span>
         {busy && <span style={styles.loadingDot}>⏳</span>}
@@ -50,7 +86,7 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
         {history.length === 0 && (
           <div style={styles.placeholder}>
             💡 Try: “Make it matte black with cyan neon”<br />
-            or “Add luxury theme with golden glow”
+            or “Add a chrome exhaust that shoots fire 🔥”
           </div>
         )}
         {history.map((msg, i) => (
@@ -58,6 +94,13 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
             <div style={styles.msgText}>{msg.content}</div>
           </div>
         ))}
+        {aiTyping && (
+          <div style={styles.aiMsg}>
+            <div style={styles.typingDots}>
+              <span>.</span><span>.</span><span>.</span>
+            </div>
+          </div>
+        )}
         <div ref={chatEndRef} />
       </div>
 
@@ -77,6 +120,7 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
   );
 }
 
+/* ✨ STYLES ✨ */
 const neon = (color) => ({
   textShadow: `0 0 6px ${color}, 0 0 12px ${color}, 0 0 24px ${color}`,
 });
@@ -90,11 +134,11 @@ const styles = {
     height: 560,
     display: "flex",
     flexDirection: "column",
-    backdropFilter: "blur(18px)",
-    background: "linear-gradient(180deg, rgba(15,17,25,0.85) 0%, rgba(10,10,18,0.95) 100%)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    backdropFilter: "blur(20px)",
+    background: "linear-gradient(180deg, rgba(15,17,25,0.85), rgba(10,10,18,0.95))",
+    border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 20,
-    boxShadow: "0 0 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,200,255,0.05)",
+    boxShadow: "0 0 40px rgba(0,200,255,0.15)",
     fontFamily: "'Orbitron', sans-serif",
     zIndex: 50,
   },
@@ -141,6 +185,13 @@ const styles = {
     color: "#bdefff",
     fontSize: 14,
     ...neon("#00bfff"),
+  },
+
+  typingDots: {
+    display: "flex",
+    gap: 4,
+    fontSize: 18,
+    animation: "blink 1.2s infinite ease-in-out",
   },
 
   userMsg: {
