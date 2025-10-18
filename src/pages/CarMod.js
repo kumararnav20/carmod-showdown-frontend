@@ -182,6 +182,33 @@ function CarMod() {
           modelRef.current.position.y += lift;
         }
 
+        if (type === "LOAD_NEW_PART") {
+           const url = action.parameters?.url;
+           if (!url) continue;
+
+           const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+           const loader = new GLTFLoader();
+
+           loader.load(
+            url,
+            (gltf) => {
+              const newPart = gltf.scene;
+              newPart.position.set(0, 2, 0);   // move above car so it’s visible
+               newPart.scale.set(1, 1, 1);
+               modelRef.current.add(newPart);
+        
+              console.log("✅ New part loaded:", newPart);
+              setDebugInfo("✅ New part added to scene");
+             },
+             undefined,
+             (err) => {
+               console.error("❌ Failed to load new part:", err);
+              setDebugInfo("❌ Failed to load new part");
+            }
+           );
+        }
+
+
         if (type === "SWAP_PRESET") {
           const preset = action?.parameters?.preset;
           if (preset === "sport_rims") {
