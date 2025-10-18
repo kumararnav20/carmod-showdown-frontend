@@ -10,7 +10,6 @@ import VotingPanel from "../VotingPanel";
 import StatusPanel from "../StatusPanel";
 
 // ADD THESE
-import React, { useRef, useEffect, useState } from "react";
 import AIChatBox from "../components/AIChatBox";
 
 /**
