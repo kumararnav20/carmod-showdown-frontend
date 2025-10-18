@@ -10,6 +10,7 @@ import VotingPanel from "../VotingPanel";
 import StatusPanel from "../StatusPanel";
 
 // ADD THESE
+import React, { useRef, useEffect, useState } from "react";
 import AIChatBox from "../components/AIChatBox";
 
 /**
@@ -65,29 +66,21 @@ function CarMod() {
   // AI busy flag
   const [aiBusy, setAIBusy] = useState(false);
 
+  // 💬 Chat Box ref (lets CarMod control the chat)
+  const chatBoxRef = useRef();
+
+// When user clicks "New Part"
+  const handleNewPart = () => {
+     chatBoxRef.current?.requestNewPart();
+  };
+
   // give AI a list of known parts (you already compute carParts[])
   const getCarContext = () => ({
     knownParts: carParts.map(p => p.name.toLowerCase()),
     themes: ["neon_night", "luxury", "offroad", "street_racer"]
   });
-  const createNewPart = async () => {
-    const prompt = window.prompt("Describe the part (e.g. fancy chrome exhaust):");
-    if (!prompt) return;
-    try {
-      const resp = await fetch(`${process.env.REACT_APP_API_URL}/api/part/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, carContext: getCarContext() })
-      });
-      if (!resp.ok) throw new Error("Part generation failed");
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-        setSelectedCar(url);
-      alert("✅ New part generated and loaded!");
-    } catch (err) {
-      alert("❌ " + err.message);
-    }
-  };
+ 
+
 
   // Apply Level-1 AI actions to current model
   const applyAIActions = async (actions = []) => {
@@ -919,11 +912,15 @@ function CarMod() {
           }}
         />
         <button
-         style={{ ...styles.hudBtn, background: "linear-gradient(135deg,#00b3ff,#0066ff)" }}
-         onClick={() => createNewPart()}
+          onClick={handleNewPart}
+          style={{
+           ...styles.hudBtn,
+           background: "linear-gradient(135deg,#ff007f,#ff66b2)",
+          }}
         >
-         🧩 New Part
+           🧩 New Part
         </button>
+
         <button
           style={{
             background: "linear-gradient(135deg,#ff007f,#ff66b2)",
@@ -1318,10 +1315,12 @@ function CarMod() {
       </div>
       {/* ✅ AI Chatbox — Level 1 Mechanic */}
       <AIChatBox
-        onActions={applyAIActions}
-        getCarContext={getCarContext}
-        busy={aiBusy}
+          ref={chatBoxRef}
+          onActions={applyAIActions}
+          getCarContext={getCarContext}
+          busy={aiBusy}
       />
+
     </div>
   );
 }

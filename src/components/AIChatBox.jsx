@@ -1,10 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 
-export default function AIChatBox({ onActions, getCarContext, busy }) {
+const AIChatBox = forwardRef(({ onActions, getCarContext, busy }, ref) => {
   const [prompt, setPrompt] = useState("");
   const [history, setHistory] = useState([]);
   const [aiTyping, setAiTyping] = useState(false);
+  const [pendingPartRequest, setPendingPartRequest] = useState(false);
   const chatEndRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    // 👇 called when "New Part" button is clicked
+    requestNewPart() {
+      setPendingPartRequest(true);
+      setHistory((h) => [
+        ...h,
+        { role: "assistant", content: "🛠️ Describe the new part you want to create (e.g. 'chrome exhaust' or 'carbon spoiler')" },
+      ]);
+    },
+  }));
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -19,12 +31,17 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
     setAiTyping(true);
 
     try {
-      // 🔍 Detect part creation (keywords like "add exhaust" or "create spoiler")
-      const isPartCreation = /(add|create|build|make).*(part|exhaust|spoiler|wheel|door|hood|bumper|roof|mirror)/i.test(prompt);
+      let endpoint;
 
-      const endpoint = isPartCreation
-        ? `${process.env.REACT_APP_API_URL}/api/part/create`
-        : `${process.env.REACT_APP_API_URL}/api/ai/interpret`;
+      if (pendingPartRequest) {
+        endpoint = `${process.env.REACT_APP_API_URL}/api/part/create`;
+      } else {
+        // Normal interpretation route
+        const isPartCreation = /(add|create|build|make).*(part|exhaust|spoiler|wheel|door|hood|bumper|roof|mirror)/i.test(prompt);
+        endpoint = isPartCreation
+          ? `${process.env.REACT_APP_API_URL}/api/part/create`
+          : `${process.env.REACT_APP_API_URL}/api/ai/interpret`;
+      }
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -34,17 +51,17 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
 
       if (!res.ok) throw new Error("Server error");
 
-      if (isPartCreation) {
-        // 🧱 Expect GLB blob for new 3D part
+      if (endpoint.includes("/part/create")) {
+        // 🧱 Expect GLB blob
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         setHistory((h) => [
           ...h,
-          { role: "assistant", content: "✅ New 3D part generated and attached to your car!" },
+          { role: "assistant", content: "✅ New 3D part generated and loaded into your car!" },
         ]);
         onActions?.([{ type: "LOAD_NEW_PART", parameters: { url } }]);
+        setPendingPartRequest(false);
       } else {
-        // ⚙️ Interpret modification commands
         const data = await res.json();
         if (data?.success && Array.isArray(data.actions)) {
           setHistory((h) => [
@@ -72,11 +89,7 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
   };
 
   return (
-    <div
-      style={styles.wrap}
-      onMouseDown={(e) => e.stopPropagation()}
-      onWheel={(e) => e.stopPropagation()}
-    >
+    <div style={styles.wrap} onMouseDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div style={styles.header}>
         <span>🤖 AI Mechanic</span>
         {busy && <span style={styles.loadingDot}>⏳</span>}
@@ -118,9 +131,11 @@ export default function AIChatBox({ onActions, getCarContext, busy }) {
       </form>
     </div>
   );
-}
+});
 
-/* ✨ STYLES ✨ */
+export default AIChatBox;
+
+/* ✨ Styles */
 const neon = (color) => ({
   textShadow: `0 0 6px ${color}, 0 0 12px ${color}, 0 0 24px ${color}`,
 });
@@ -134,30 +149,25 @@ const styles = {
     height: 560,
     display: "flex",
     flexDirection: "column",
-    backdropFilter: "blur(20px)",
+    backdropFilter: "blur(18px)",
     background: "linear-gradient(180deg, rgba(15,17,25,0.85), rgba(10,10,18,0.95))",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 20,
-    boxShadow: "0 0 40px rgba(0,200,255,0.15)",
+    boxShadow: "0 0 40px rgba(0,200,255,0.2)",
     fontFamily: "'Orbitron', sans-serif",
     zIndex: 50,
   },
-
   header: {
     padding: "14px 18px",
     color: "#7fe9ff",
     fontWeight: 800,
     fontSize: 18,
-    letterSpacing: 0.8,
     borderBottom: "1px solid rgba(255,255,255,0.1)",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     ...neon("#00bfff"),
   },
-
-  loadingDot: { fontSize: 16, animation: "pulse 1s infinite" },
-
   chat: {
     flex: 1,
     overflowY: "auto",
@@ -166,7 +176,6 @@ const styles = {
     flexDirection: "column",
     gap: 10,
   },
-
   placeholder: {
     color: "#999",
     fontSize: 14,
@@ -174,7 +183,6 @@ const styles = {
     lineHeight: 1.5,
     marginTop: 30,
   },
-
   aiMsg: {
     alignSelf: "flex-start",
     background: "rgba(0,180,255,0.1)",
@@ -184,16 +192,7 @@ const styles = {
     maxWidth: "85%",
     color: "#bdefff",
     fontSize: 14,
-    ...neon("#00bfff"),
   },
-
-  typingDots: {
-    display: "flex",
-    gap: 4,
-    fontSize: 18,
-    animation: "blink 1.2s infinite ease-in-out",
-  },
-
   userMsg: {
     alignSelf: "flex-end",
     background: "rgba(255,255,255,0.08)",
@@ -204,9 +203,13 @@ const styles = {
     color: "#fff",
     fontSize: 14,
   },
-
   msgText: { whiteSpace: "pre-wrap", lineHeight: 1.5 },
-
+  typingDots: {
+    display: "flex",
+    gap: 4,
+    fontSize: 18,
+    animation: "blink 1.2s infinite ease-in-out",
+  },
   form: {
     display: "flex",
     gap: 8,
@@ -214,7 +217,6 @@ const styles = {
     borderTop: "1px solid rgba(255,255,255,0.1)",
     background: "rgba(0,0,0,0.2)",
   },
-
   input: {
     flex: 1,
     padding: "12px 14px",
@@ -226,7 +228,6 @@ const styles = {
     outline: "none",
     fontFamily: "'Orbitron', sans-serif",
   },
-
   btn: {
     padding: "12px 16px",
     borderRadius: 12,
