@@ -21,6 +21,8 @@ import AIChatBox from "../components/AIChatBox";
  */
 
 function CarMod() {
+  console.log("API URL:", process.env.REACT_APP_API_URL);
+
   const mountRef = useRef(null);
 
   // ----------------- core state -----------------
