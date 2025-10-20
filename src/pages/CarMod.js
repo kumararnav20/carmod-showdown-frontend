@@ -63,6 +63,9 @@ function CarMod() {
     file: null,
     agreedToTerms: false,
   });
+  // 🚘 Dynamic cars from backend
+// 🚘 All cars (fetched from backend only)
+const [cars, setCars] = useState([]);
 
   // AI busy flag
   const [aiBusy, setAIBusy] = useState(false);
@@ -263,24 +266,7 @@ function CarMod() {
   };
 
   // ----------------- data: cars & part types -----------------
-  const cars = [
-    { name: "Aston Martin Valkyrie", file: "aston_martin_valkyrie.glb" },
-    { name: "BMW", file: "bmw.glb" },
-    { name: "BMW 507", file: "bmw_507.glb" },
-    { name: "BMW E38 Cyberbody", file: "bmw_e38_cyberbody.glb" },
-    { name: "BMW F22 Eurofighter", file: "bmw_f22_eurofighter_free.glb", offset: { y: 0.4 } },
-    { name: "BMW M4 Competition", file: "bmw_m4_competition.glb" },
-    { name: "BMW M5 F90", file: "bmw_m5_f90.glb" },
-    { name: "Ferrari SF90", file: "ferrari_sf90.glb" },
-    { name: "BMW M3 E30", file: "free_bmw_m3_e30.glb" },
-    { name: "Mercedes 190E Evo 1982", file: "mercedes_190e_evo_1982_3d_model_free.glb" },
-    { name: "Mercedes R-Class", file: "mercedes_r-class.glb" },
-    { name: "Porsche 911 GT3 RS", file: "porsche_911_gt3_rs.glb" },
-    { name: "Rolls Royce Boattail", file: "rolls_royce_boattail.glb" },
-    { name: "Rolls Royce Cullinan", file: "rolls_royce_cullinan.glb", offset: { z: -7.0 } },
-    { name: "Rolls Royce Ghost", file: "rolls_royce_ghost.glb" },
-    { name: "Rolls Royce Ghost Alt", file: "rolls-royce_ghost.glb" },
-  ];
+
 
   const partTypes = [
     "Front Bumper",
@@ -311,7 +297,38 @@ function CarMod() {
     setIsAdmin(adminStatus === "true");
     setCurrentUserId(userId ? parseInt(userId) : null);
   }, []);
+  // 🧩 Fetch all uploaded cars from backend (GCS links)
+  useEffect(() => {
+     const fetchCars = async () => {
+       try {
+         const res = await fetch(`${process.env.REACT_APP_API_URL}/api/gallery`);
+         const data = await res.json();
+        if (data.success && Array.isArray(data.submissions)) {
+           setCars(
+             data.submissions.map(c => ({
+               id: c.id,
+               name: c.part_name || "Untitled",
+               model: c.car_model || "Universal",
+               url: c.file_path,     // ✅ direct GCS URL
+               week: c.week_number,
+               status: c.status
+             }))
+           );
+           console.log("✅ Loaded cars:", data.submissions.length);
+         } else {
+           console.warn("⚠️ Unexpected API format", data);
+         }
+       } catch (err) {
+         console.error("❌ Failed to fetch cars:", err);
+       }
+     };
+     fetchCars();
+  },  []);
+  useEffect(() => {
+      console.log("🔍 Cars from backend:", cars);
+  }, [cars]);
 
+  
   // ----------------- resizable panel mouse handlers -----------------
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -715,11 +732,15 @@ function CarMod() {
         );
         const loader = new GLTFLoader();
 
+        const url = selectedCar?.startsWith("http")
+         ? selectedCar // ✅ load from GCS or external URL
+         : selectedCar; // also supports blob: URLs (uploads or generated)
+
         loader.load(
-          `/models/${selectedCar}`,
-          (gltf) => {
-            // clear testcube after first model load
-            if (testCube.parent) testCube.parent.remove(testCube);
+          url,
+         (gltf) => {
+           // clear testcube after first model load
+           if (testCube.parent) testCube.parent.remove(testCube);
 
             if (currentModel) scene.remove(currentModel);
 
@@ -727,66 +748,67 @@ function CarMod() {
             modelRef.current = currentModel;
 
             // collect parts
-            const parts = [];
-            currentModel.traverse((child) => {
-              if (child.isMesh) {
-                const bbox = new THREE.Box3().setFromObject(child);
-                const center = bbox.getCenter(new THREE.Vector3());
-                const size = bbox.getSize(new THREE.Vector3());
+           const parts = [];
+           currentModel.traverse((child) => {
+             if (child.isMesh) {
+               const bbox = new THREE.Box3().setFromObject(child);
+               const center = bbox.getCenter(new THREE.Vector3());
+               const size = bbox.getSize(new THREE.Vector3());
 
-                let autoLabel = "body";
-                if (size.x < 1 && size.z < 1 && center.y < 0.5) autoLabel = "wheel";
-                else if (center.z > 1.5) autoLabel = "front";
-                else if (center.z < -1.5) autoLabel = "rear";
-                else if (center.y > 1) autoLabel = "top";
+               let autoLabel = "body";
+               if (size.x < 1 && size.z < 1 && center.y < 0.5) autoLabel = "wheel";
+               else if (center.z > 1.5) autoLabel = "front";
+               else if (center.z < -1.5) autoLabel = "rear";
+               else if (center.y > 1) autoLabel = "top";
 
-                parts.push({
+               parts.push({
                   name: child.name,
                   visible: true,
-                  color: child.material?.color
+                 color: child.material?.color
                     ? "#" + child.material.color.getHexString()
-                    : "#ffffff",
-                  position: {
+                   : "#ffffff",
+                 position: {
                     x: center.x.toFixed(2),
                     y: center.y.toFixed(2),
                     z: center.z.toFixed(2),
-                  },
-                  size: {
-                    x: size.x.toFixed(2),
-                    y: size.y.toFixed(2),
+                 },
+                 size: {
+                   x: size.x.toFixed(2),
+                   y: size.y.toFixed(2),
                     z: size.z.toFixed(2),
-                  },
-                  label: autoLabel,
-                });
+                 },
+                 label: autoLabel,
+               });
+        
+               child.castShadow = true;
+               child.receiveShadow = true;
+             }
+           });
+           setCarParts(parts);
 
-                child.castShadow = true;
-                child.receiveShadow = true;
-              }
-            });
-            setCarParts(parts);
-
-            // center & scale
-            const box = new THREE.Box3().setFromObject(currentModel);
+           // center & scale
+           const box = new THREE.Box3().setFromObject(currentModel);
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
 
-            currentModel.position.x = -center.x;
-            currentModel.position.z = -center.z;
-            currentModel.position.y = -box.min.y;
+           currentModel.position.x = -center.x;
+           currentModel.position.z = -center.z;
+           currentModel.position.y = -box.min.y;
 
             const maxDim = Math.max(size.x, size.y, size.z);
             if (maxDim > 3) {
-              const scale = 3 / maxDim;
-              currentModel.scale.multiplyScalar(scale);
+             const scale = 3 / maxDim;
+             currentModel.scale.multiplyScalar(scale);
 
               const nBox = new THREE.Box3().setFromObject(currentModel);
               const nCenter = nBox.getCenter(new THREE.Vector3());
-              currentModel.position.x = -nCenter.x;
-              currentModel.position.z = -nCenter.z;
-              currentModel.position.y = -nBox.min.y;
-            }
+             currentModel.position.x = -nCenter.x;
+             currentModel.position.z = -nCenter.z;
+             currentModel.position.y = -nBox.min.y;
+           }
 
-            const cfg = cars.find((c) => c.file === selectedCar);
+            // Optional offset (if ever needed)
+            const cfg = cars.find((c) => c.url === selectedCar);
             if (cfg?.offset) {
               if (cfg.offset.x) currentModel.position.x += cfg.offset.x;
               if (cfg.offset.y) currentModel.position.y += cfg.offset.y;
@@ -795,19 +817,16 @@ function CarMod() {
 
             scene.add(currentModel);
             setIsLoading(false);
-            setDebugInfo(`Loaded: ${parts.length} parts`);
+            setDebugInfo(`✅ Loaded: ${parts.length} parts`);
           },
           undefined,
-          () => {
-            setLoadingError("Failed to load car");
-            setIsLoading(false);
-          }
+          (err) => {
+           console.error("❌ Failed to load model:", err);
+           setLoadingError("Failed to load car");
+           setIsLoading(false);
+         }
         );
-      } catch (err) {
-        setLoadingError("Failed to load");
-        setIsLoading(false);
-      }
-    };
+
 
     loadCar();
 
@@ -874,16 +893,18 @@ function CarMod() {
         </button>
 
         <select
-          value={selectedCar}
-          onChange={(e) => setSelectedCar(e.target.value)}
-          style={styles.hudSelect}
-        >
-          {cars.map((car) => (
-            <option key={car.file} value={car.file}>
-              {car.name}
-            </option>
-          ))}
-        </select>
+           value={selectedCar || ""}
+           onChange={(e) => setSelectedCar(e.target.value)}
+           style={styles.hudSelect}
+         >
+           <option value="">Select a car (GCS)</option>
+           {cars.map(car => (
+             <option key={car.id} value={car.url}>
+               {car.name} — {car.model}
+             </option>
+           ))}
+         </select>
+
         {/* Photo → 3D */}
         <label style={{ ...styles.hudBtn, display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer" }}>
           📷 → 🧱 GLB
