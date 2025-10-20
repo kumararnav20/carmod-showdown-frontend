@@ -325,7 +325,7 @@ const [cars, setCars] = useState([]);
      fetchCars();
   },  []);
   useEffect(() => {
-      console.log("🔍 Cars from backend:", cars);
+     console.log("🔍 Cars from backend:", cars);
   }, [cars]);
 
   
@@ -721,147 +721,154 @@ const [cars, setCars] = useState([]);
     document.addEventListener("contextmenu", onContext);
 
     // Load a car
-    const loadCar = async () => {
-      setIsLoading(true);
-      setCarParts([]);
-      setSelectedParts([]);
+         // Load a car
+ const loadCar = async () => {
+  setIsLoading(true);
+  setCarParts([]);
+  setSelectedParts([]);
 
-      try {
-        const { GLTFLoader } = await import(
-          "three/examples/jsm/loaders/GLTFLoader.js"
-        );
-        const loader = new GLTFLoader();
+  try {
+    const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+    const loader = new GLTFLoader();
 
-        const url = selectedCar?.startsWith("http")
-         ? selectedCar // ✅ load from GCS or external URL
-         : selectedCar; // also supports blob: URLs (uploads or generated)
+    const url = selectedCar?.startsWith("http")
+      ? selectedCar // ✅ load from GCS or external URL
+      : selectedCar; // also supports blob: URLs (uploads or generated)
 
-        loader.load(
-          url,
-         (gltf) => {
-           // clear testcube after first model load
-           if (testCube.parent) testCube.parent.remove(testCube);
+    loader.load(
+      url,
+      (gltf) => {
+        // clear testcube after first model load
+        if (testCube.parent) testCube.parent.remove(testCube);
 
-            if (currentModel) scene.remove(currentModel);
+        if (currentModel) scene.remove(currentModel);
 
-            currentModel = gltf.scene;
-            modelRef.current = currentModel;
+        currentModel = gltf.scene;
+        modelRef.current = currentModel;
 
-            // collect parts
-           const parts = [];
-           currentModel.traverse((child) => {
-             if (child.isMesh) {
-               const bbox = new THREE.Box3().setFromObject(child);
-               const center = bbox.getCenter(new THREE.Vector3());
-               const size = bbox.getSize(new THREE.Vector3());
+        // collect parts
+        const parts = [];
+        currentModel.traverse((child) => {
+          if (child.isMesh) {
+            const bbox = new THREE.Box3().setFromObject(child);
+            const center = bbox.getCenter(new THREE.Vector3());
+            const size = bbox.getSize(new THREE.Vector3());
 
-               let autoLabel = "body";
-               if (size.x < 1 && size.z < 1 && center.y < 0.5) autoLabel = "wheel";
-               else if (center.z > 1.5) autoLabel = "front";
-               else if (center.z < -1.5) autoLabel = "rear";
-               else if (center.y > 1) autoLabel = "top";
+            let autoLabel = "body";
+            if (size.x < 1 && size.z < 1 && center.y < 0.5) autoLabel = "wheel";
+            else if (center.z > 1.5) autoLabel = "front";
+            else if (center.z < -1.5) autoLabel = "rear";
+            else if (center.y > 1) autoLabel = "top";
 
-               parts.push({
-                  name: child.name,
-                  visible: true,
-                 color: child.material?.color
-                    ? "#" + child.material.color.getHexString()
-                   : "#ffffff",
-                 position: {
-                    x: center.x.toFixed(2),
-                    y: center.y.toFixed(2),
-                    z: center.z.toFixed(2),
-                 },
-                 size: {
-                   x: size.x.toFixed(2),
-                   y: size.y.toFixed(2),
-                    z: size.z.toFixed(2),
-                 },
-                 label: autoLabel,
-               });
-        
-               child.castShadow = true;
-               child.receiveShadow = true;
-             }
-           });
-           setCarParts(parts);
+            parts.push({
+              name: child.name,
+              visible: true,
+              color: child.material?.color
+                ? "#" + child.material.color.getHexString()
+                : "#ffffff",
+              position: {
+                x: center.x.toFixed(2),
+                y: center.y.toFixed(2),
+                z: center.z.toFixed(2),
+              },
+              size: {
+                x: size.x.toFixed(2),
+                y: size.y.toFixed(2),
+                z: size.z.toFixed(2),
+              },
+              label: autoLabel,
+            });
 
-           // center & scale
-           const box = new THREE.Box3().setFromObject(currentModel);
-            const size = box.getSize(new THREE.Vector3());
-            const center = box.getCenter(new THREE.Vector3());
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        setCarParts(parts);
 
-           currentModel.position.x = -center.x;
-           currentModel.position.z = -center.z;
-           currentModel.position.y = -box.min.y;
+        // center & scale
+        const box = new THREE.Box3().setFromObject(currentModel);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
 
-            const maxDim = Math.max(size.x, size.y, size.z);
-            if (maxDim > 3) {
-             const scale = 3 / maxDim;
-             currentModel.scale.multiplyScalar(scale);
+        currentModel.position.x = -center.x;
+        currentModel.position.z = -center.z;
+        currentModel.position.y = -box.min.y;
 
-              const nBox = new THREE.Box3().setFromObject(currentModel);
-              const nCenter = nBox.getCenter(new THREE.Vector3());
-             currentModel.position.x = -nCenter.x;
-             currentModel.position.z = -nCenter.z;
-             currentModel.position.y = -nBox.min.y;
-           }
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 3) {
+          const scale = 3 / maxDim;
+          currentModel.scale.multiplyScalar(scale);
 
-            // Optional offset (if ever needed)
-            const cfg = cars.find((c) => c.url === selectedCar);
-            if (cfg?.offset) {
-              if (cfg.offset.x) currentModel.position.x += cfg.offset.x;
-              if (cfg.offset.y) currentModel.position.y += cfg.offset.y;
-              if (cfg.offset.z) currentModel.position.z += cfg.offset.z;
-            }
+          const nBox = new THREE.Box3().setFromObject(currentModel);
+          const nCenter = nBox.getCenter(new THREE.Vector3());
+          currentModel.position.x = -nCenter.x;
+          currentModel.position.z = -nCenter.z;
+          currentModel.position.y = -nBox.min.y;
+        }
 
-            scene.add(currentModel);
-            setIsLoading(false);
-            setDebugInfo(`✅ Loaded: ${parts.length} parts`);
-          },
-          undefined,
-          (err) => {
-           console.error("❌ Failed to load model:", err);
-           setLoadingError("Failed to load car");
-           setIsLoading(false);
-         }
-        );
+        // Optional offset (if ever needed)
+        const cfg = cars.find((c) => c.url === selectedCar);
+        if (cfg?.offset) {
+          if (cfg.offset.x) currentModel.position.x += cfg.offset.x;
+          if (cfg.offset.y) currentModel.position.y += cfg.offset.y;
+          if (cfg.offset.z) currentModel.position.z += cfg.offset.z;
+        }
 
-
-    loadCar();
-
-    // animate
-    const animate = () => {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // resize
-    const onResize = () => {
-      if (!mount) return;
-      const w = mount.clientWidth;
-      const h = mount.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.removeEventListener("wheel", onWheel);
-      document.removeEventListener("contextmenu", onContext);
-
-      if (mount && renderer.domElement && mount.contains(renderer.domElement)) {
-        mount.removeChild(renderer.domElement);
+        scene.add(currentModel);
+        setIsLoading(false);
+        setDebugInfo(`✅ Loaded: ${parts.length} parts`);
+      },
+      undefined,
+      (err) => {
+        console.error("❌ Failed to load model:", err);
+        setLoadingError("Failed to load car");
+        setIsLoading(false);
       }
-      if (renderer) renderer.dispose();
-    };
-  }, [selectedCar]); // reload when car changes
+    );
+  } catch (err) {
+    console.error("❌ Unexpected error:", err);
+    setLoadingError("Failed to load");
+    setIsLoading(false);
+  }
+};
+
+// ✅ Call it outside the function definition
+loadCar();
+
+// Animate loop
+const animate = () => {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+};
+animate();
+
+// Resize handling
+const onResize = () => {
+  if (!mount) return;
+  const w = mount.clientWidth;
+  const h = mount.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+};
+window.addEventListener("resize", onResize);
+
+// Cleanup
+return () => {
+  window.removeEventListener("resize", onResize);
+  document.removeEventListener("mousedown", onDown);
+  document.removeEventListener("mousemove", onMove);
+  document.removeEventListener("mouseup", onUp);
+  document.removeEventListener("wheel", onWheel);
+  document.removeEventListener("contextmenu", onContext);
+
+  if (mount && renderer.domElement && mount.contains(renderer.domElement)) {
+    mount.removeChild(renderer.domElement);
+  }
+  if (renderer) renderer.dispose();
+};
+
+    }, [selectedCar]); // reload when car changes
 
   // ----------------- filter -----------------
   const filteredParts = carParts.filter(
