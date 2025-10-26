@@ -204,6 +204,8 @@ const [cars, setCars] = useState([]);
         
               console.log("✅ New part loaded:", newPart);
               setDebugInfo("✅ New part added to scene");
+              console.log("🎯 Loading model from:", selectedCar);
+
              },
              undefined,
              (err) => {
