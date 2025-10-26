@@ -898,6 +898,7 @@ return () => {
         <button style={styles.hudBtn} onClick={() => (window.location.href = "/")}>
           🏠 Home
         </button>
+        console.log("🚗 Cars fetched:", cars);
 
         <select
            value={selectedCar || ""}
